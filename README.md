@@ -24,6 +24,7 @@ The implementation baseline is locked in:
 
 Core MVP decisions:
 - Supabase Auth + Postgres + RLS
+- Supabase project: Vokos (project ID `soevdggwpfjrkojhwjuw`, owned by the Smartio organization and accessible via Cursor or Codex MCP `supabase_smartio`)
 - Stripe billing via webhook synchronization
 - Google Gemini as AI provider
 - Email ingestion first (DJE and portals are post-MVP)

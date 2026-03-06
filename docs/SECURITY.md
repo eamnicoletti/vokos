@@ -87,6 +87,12 @@ Storage rules:
 - no secrets committed to repository
 - no secrets rendered to browser
 
+Contributor (human or AI) rules:
+- never paste secrets into docs, issues, PRs, or commit messages
+- use `.env` files for local development and keep them git-ignored
+- run secret scanning in CI and block merges on secret findings
+- if a secret is exposed, revoke/rotate immediately and document the incident
+
 Integration token rules:
 - encrypted at rest
 - server-side only access

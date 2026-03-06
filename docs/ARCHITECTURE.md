@@ -68,6 +68,7 @@ Hard rules:
 - Every query is workspace-scoped
 - RLS is enabled on all multi-tenant tables
 - Backend role authorization is required for mutable actions
+- No secrets (API keys, tokens, credentials) in repo, frontend bundles, logs, or documentation
 
 MVP roles:
 - `admin`

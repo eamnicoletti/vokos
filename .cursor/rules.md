@@ -28,6 +28,8 @@
 - Never allow cross-workspace reads or writes.
 - Keep secrets server-side only.
 - Never expose integration tokens to frontend clients.
+- Never paste secrets into docs, issues, PRs, or commit messages.
+- Keep `.env` files git-ignored; never commit real secret values.
 - Ensure auditable actions for critical entities.
 - Customer mailbox integrations are read-only only.
 - Never implement send/reply/draft actions using customer mailbox credentials.
