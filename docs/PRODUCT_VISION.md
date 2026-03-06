@@ -82,6 +82,7 @@ Explicitly post-MVP:
 - Agent orchestration (OpenClaw)
 - Advanced legal analytics and forecasting
 - Complex workflow automation rules
+- Flutter mobile app for task viewing, updates, and alerts
 
 ## 8. UX Principles
 

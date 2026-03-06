@@ -16,6 +16,14 @@ Core business outcome:
 - `packages/shared`: shared schemas/contracts
 - `docs`: product, architecture, security, and database documentation
 
+## M1 Implementation Assets
+
+- `supabase/migrations/0001_m1_foundation.sql`: M1 schema + RLS + policies + integrity triggers
+- `scripts/m1_seed.sql`: optional workspace bootstrap seed
+- `docs/PROMPT_CURSOR_MCP_SUPABASE_M1.md`: prompt to execute migration through Cursor + Supabase MCP
+- `apps/web`: M1 foundation UI + server actions for workspace/board/task/comment + audit writes
+- `services/ai_server`: M1 service skeleton with internal auth and extraction contract
+
 ## MVP Baseline (Locked)
 
 The implementation baseline is locked in:
@@ -43,3 +51,10 @@ Core MVP decisions:
 - RLS enabled for all multi-tenant tables
 - No secrets in frontend code or client-side env vars
 - Structured audit trail for tasks and critical entities
+
+## Local Development (M1)
+
+- Install dependencies: `pnpm install`
+- Run web app: `pnpm dev:web`
+- Run AI server: `pnpm dev:ai`
+- Apply SQL in Supabase via Cursor MCP prompt from `docs/PROMPT_CURSOR_MCP_SUPABASE_M1.md`

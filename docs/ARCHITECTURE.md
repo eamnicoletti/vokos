@@ -210,3 +210,5 @@ Explicitly post-MVP architecture items:
 - tribunal portal integrations
 - agentic orchestration (OpenClaw)
 - advanced legal timeline intelligence
+- Flutter mobile app for task viewing and management
+- Mobile app data access: direct Supabase client for standard task CRUD, backend-only for privileged operations
