@@ -29,6 +29,9 @@
 - Keep secrets server-side only.
 - Never expose integration tokens to frontend clients.
 - Ensure auditable actions for critical entities.
+- Customer mailbox integrations are read-only only.
+- Never implement send/reply/draft actions using customer mailbox credentials.
+- Future outbound emails must use Vokos-owned channels, never customer identity.
 
 ## Product Scope Rules (MVP)
 - Core product is legal Kanban plus AI automation.
@@ -48,4 +51,3 @@
 - Do not bypass RLS expectations with unsafe data access patterns.
 - Do not add secret values to repository files.
 - Do not build scraping-first solutions for MVP ingestion.
-

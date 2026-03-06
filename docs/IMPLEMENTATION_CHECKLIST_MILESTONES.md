@@ -66,6 +66,7 @@ Checklist:
 - [ ] Implement ingestion tables: ingestion_items and integrations.
 - [ ] Implement email ingestion capture endpoint/flow (MVP email-first).
 - [ ] Implement dedup key handling (`workspace_id`, `hash`).
+- [ ] Enforce read-only mailbox scopes for customer integrations.
 - [ ] Implement preprocessing stage (sanitization + regex/date/process patterns).
 - [ ] Implement classification stage.
 - [ ] Implement Google Gemini client in isolated module.
@@ -74,6 +75,7 @@ Checklist:
 - [ ] Implement confidence routing to regular workflow vs `Revisao` list.
 - [ ] Create backend command endpoint for AI extraction persistence.
 - [ ] Ensure AI server never writes directly to DB.
+- [ ] Ensure no send/reply/draft path exists for customer-identity mailbox actions.
 - [ ] Add audit events for bot-created tasks and related updates.
 
 Reliability and safety checks:
@@ -136,6 +138,7 @@ M3 Gate (Go/No-Go):
 - [ ] Never bypass `workspace_id` scoping.
 - [ ] Never expose secrets or tokens to frontend clients.
 - [ ] Never allow AI server direct DB writes.
+- [ ] Never send/reply/draft emails using customer mailbox credentials.
 - [ ] Always append audit events for critical actions.
 - [ ] Keep docs in sync when architecture/security/schema changes.
 

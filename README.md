@@ -27,6 +27,7 @@ Core MVP decisions:
 - Stripe billing via webhook synchronization
 - Google Gemini as AI provider
 - Email ingestion first (DJE and portals are post-MVP)
+- Customer mailbox integrations are read-only (no send/reply/draft as customer identity)
 - Mandatory audit trail for critical actions
 
 ## UI Standards (Non-negotiable)

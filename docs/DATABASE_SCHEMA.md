@@ -205,6 +205,9 @@ Indexes:
 
 Rule:
 - integration tokens are server-side only and never exposed to frontend clients.
+- customer mailbox integrations must be read-only in `token_scopes`.
+- integrations with send/write/draft scopes must not be activated.
+- once credentials are stored, values are not returned to user-facing clients (write-only secret UX).
 
 ## 6. Audit
 
@@ -316,4 +319,3 @@ Required migration discipline:
 - task attachments and watchers
 - DJE and tribunal portal ingestion models
 - advanced automation rules
-

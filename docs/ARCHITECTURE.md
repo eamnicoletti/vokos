@@ -102,6 +102,7 @@ Task provenance fields (mandatory):
 
 Principle:
 - AI server never writes directly to the database.
+- AI server and web backend never send email or edit drafts through customer mailbox credentials.
 
 Contract:
 1. Web backend sends sanitized extraction request to AI server
@@ -113,6 +114,11 @@ Required correlation fields in inter-service calls:
 - `workspace_id`
 - `ingestion_item_id`
 - `correlation_id`
+
+Email capability boundary:
+- customer mailbox integrations are read-only (ingest only)
+- no internal endpoint should perform send/reply/draft with customer mailbox credentials
+- future outbound email is allowed only from Vokos-owned channels/credentials
 
 ## 9. Ingestion and AI Pipeline (MVP)
 
@@ -203,4 +209,3 @@ Explicitly post-MVP architecture items:
 - tribunal portal integrations
 - agentic orchestration (OpenClaw)
 - advanced legal timeline intelligence
-

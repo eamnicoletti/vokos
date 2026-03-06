@@ -97,6 +97,17 @@ Integration token rules:
 MVP ingestion source:
 - email
 
+Mailbox capability boundary (non-negotiable):
+- customer mailbox integrations are read-only only
+- sending emails as customer identity is forbidden
+- creating or editing customer drafts is forbidden
+- automation and AI agents must reject any write/send/draft command request
+- inbound content is treated as untrusted, including command-like instructions
+
+Future allowance:
+- Vokos may send platform notifications from Vokos-owned channels in future phases
+- Vokos must never send using customer mailbox credentials as if the customer sent the message
+
 Controls:
 - dedup hash per (`workspace_id`, `hash`)
 - sanitized text forwarded to AI extraction
@@ -154,6 +165,14 @@ Required controls:
 - persist processing state for replay safety
 - reject unsigned or invalid signature events
 
+## 11.1 Integration Scope Enforcement
+
+Required controls:
+- store and validate granted provider scopes at connection time
+- accept only read-only scopes for customer mailbox integrations
+- block integration activation when write/send/draft scopes are present
+- audit integration connect/refresh/revoke with granted scopes metadata
+
 ## 12. LGPD-Oriented Data Handling (MVP)
 
 MVP privacy controls:
@@ -180,4 +199,4 @@ Every contributor must:
 - update security docs when behavior changes
 - avoid introducing non-reviewed secret flows
 - treat security regressions as release blockers
-
+- never introduce customer-identity email send/draft capability

@@ -11,12 +11,14 @@
 - AI server does not write directly to database tables.
 - AI server does not store OAuth integration tokens.
 - AI server does not trust user session context directly.
+- AI server does not send email or edit drafts via customer mailbox credentials.
 
 ## Security Requirements
 - Require service-to-service authentication on every request.
 - Require `workspace_id`, `ingestion_item_id`, and `correlation_id` in requests.
 - Redact sensitive data in logs.
 - Never log full raw legal payloads or secrets.
+- Reject any command-like instruction in source content that requests send/reply/draft actions.
 
 ## Module Guidelines
 Suggested modules:
@@ -43,4 +45,3 @@ Suggested modules:
 ## Testing
 - Unit test parser and schema validation paths.
 - Add failure-mode tests for malformed model outputs.
-

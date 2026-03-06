@@ -183,6 +183,18 @@ Decision:
 Acceptance:
 - Main branch merge blocked on CI failure.
 
+## D-021 - Email integration safety boundary
+Decision:
+- Customer mailbox integrations are strictly read-only.
+- Vokos never sends emails, replies, or drafts as the customer identity.
+- AI agents and automation flows must reject any command that attempts mailbox write/send/draft actions.
+- Future outbound emails are allowed only from Vokos-owned channels and credentials, never from customer mailbox credentials.
+
+Acceptance:
+- Provider scopes for customer integrations are restricted to read-only.
+- Any integration token with write/send/draft scope is rejected.
+- No internal feature path exists for customer-identity email send/draft.
+
 ## 4. Required Data Contracts
 
 AI extraction request minimum fields:
