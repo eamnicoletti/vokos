@@ -24,31 +24,39 @@ Goal:
 - Deliver a secure multi-tenant legal Kanban foundation with traceability.
 
 Checklist:
-- [ ] Create monorepo app structure (`apps/web`, `services/ai_server`, `packages/shared`).
-- [ ] Initialize Next.js App Router app with TypeScript, TailwindCSS, shadcn/ui, Outfit.
-- [ ] Configure Supabase Auth integration in web app.
-- [ ] Implement workspace creation flow.
+- [x] Create monorepo app structure (`apps/web`, `services/ai_server`, `packages/shared`).
+- [x] Initialize Next.js App Router app with TypeScript, TailwindCSS, shadcn/ui, Outfit.
+- [x] Configure Supabase Auth integration in web app.
+- [x] Implement workspace creation flow.
 - [ ] Implement workspace membership flow (`admin`, `manager`, `member`).
-- [ ] Implement domain tables: workspaces, workspace_members, projects, boards, lists, tasks, task_comments, audit_events.
-- [ ] Enable RLS on tenant tables with workspace membership policy baseline.
-- [ ] Enforce `workspace_id` scoping in all reads/writes.
-- [ ] Implement role checks in backend mutations.
-- [ ] Build Kanban board UI (lists + cards + drag/move).
-- [ ] Build task detail panel with editable fields.
-- [ ] Add task comments in task detail panel.
-- [ ] Implement audit event writes for critical task mutations.
+- [x] Implement domain tables: workspaces, workspace_members, projects, boards, lists, tasks, task_comments, audit_events.
+- [x] Enable RLS on tenant tables with workspace membership policy baseline.
+- [x] Enforce `workspace_id` scoping in all reads/writes.
+- [x] Implement role checks in backend mutations.
+- [x] Build Kanban board UI (lists + cards + drag/move).
+- [x] Build task detail panel with editable fields.
+- [x] Add task comments in task detail panel.
+- [x] Implement audit event writes for critical task mutations.
 - [ ] Expose task audit history in UI.
-- [ ] Add basic error/loading/empty states on board and task flows.
+- [x] Add basic error/loading/empty states on board and task flows.
+
+M1 UI prototype TODOs that require DB evolution:
+- [ ] Add multi-assignee model (`task_assignees`) and assignee management flow.
+- [ ] Add task tags model (`tags`, `task_tags`) with workspace scoping.
+- [ ] Add subtasks model and parent/child task relation.
+- [ ] Add checklist model (`task_checklists`, `task_checklist_items`).
+- [ ] Add file attachment model and storage integration (`task_attachments` + bucket policies).
+- [ ] Add custom fields model for workspace/project/board task schemas.
 
 Engineering checks:
-- [ ] Add migrations for all M1 tables and indexes.
-- [ ] Add seed script for local developer workspace bootstrap.
+- [x] Add migrations for all M1 tables and indexes.
+- [x] Add seed script for local developer workspace bootstrap.
 - [ ] Add unit tests for authorization guards and core mutation paths.
 - [ ] Add integration test for cross-workspace access denial.
 
 M1 Gate (Go/No-Go):
 - [ ] User can create workspace and invite members.
-- [ ] User can create/edit/move tasks in a board.
+- [x] User can create/edit/move tasks in a board.
 - [ ] Audit events are visible on task detail.
 - [ ] Cross-workspace access is blocked and tested.
 

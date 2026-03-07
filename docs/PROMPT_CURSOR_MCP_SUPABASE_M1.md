@@ -3,7 +3,7 @@
 Use this prompt in Cursor chat to execute M1 database setup directly on Supabase MCP.
 
 ```text
-Use the Supabase MCP server and target project ID `soevdggwpfjrkojhwjuw`.
+Use the Supabase MCP server supabase_smartio and target project ID `soevdggwpfjrkojhwjuw` (Vokos).
 
 Goal:
 Apply the M1 foundation SQL migration from this repository and verify schema + RLS + policies.

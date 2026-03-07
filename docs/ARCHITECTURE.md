@@ -46,6 +46,8 @@ Web:
 - Next.js App Router + TypeScript
 - TailwindCSS + shadcn/ui
 - Outfit as global font
+- shadcn `neutral` design tokens (`primary: neutral-950`, background `neutral-50`)
+- `sonner` as the standard feedback channel for user-facing async actions
 
 Data/Auth:
 - Supabase Auth + Postgres + RLS
@@ -74,6 +76,14 @@ MVP roles:
 - `admin`
 - `manager`
 - `member`
+
+## 6.1 UX Interaction Baseline (MVP)
+
+Rules:
+- Authenticated routes must render the application sidebar.
+- Sidebar must expose workspace navigation and account/session actions.
+- Mutating actions must provide explicit feedback (loading/success/error) via Sonner.
+- Data entry and edits use `Dialog`; critical confirmations use `AlertDialog`.
 
 ## 7. Domain Model (MVP)
 
