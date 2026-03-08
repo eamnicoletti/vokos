@@ -15,11 +15,24 @@
 - Task detail side panel with editable fields
 - Task detail includes audit history and comments
 - Always support loading, empty, and error states
+- Sidebar navigation after authentication (workspace switch + account actions)
 
 ## Styling Rules
 - Use Tailwind utilities first.
 - Keep custom CSS minimal and scoped.
 - Do not introduce another UI component library.
+- Color system must follow shadcn `neutral` palette.
+- Primary actions use `primary` (`neutral-950`) and app background uses `background/secondary` (`neutral-50`).
+
+## User Feedback Rules
+- Use `sonner` toast feedback for user-facing async actions:
+  - `toast.success` for success
+  - `toast.error` for failures
+  - `toast.info`/`toast.warning` for non-blocking notices
+  - `toast.promise` for create/update/delete flows
+- Any action that changes data must provide visual feedback.
+- Use `Dialog` for data entry/edit workflows.
+- Use `AlertDialog` for confirmation or important warnings.
 
 ## Data and Mutations
 - Prefer Server Actions for writes.
@@ -35,6 +48,10 @@
 - Ensure keyboard support for dialogs and board interactions.
 - Use semantic labels and aria attributes.
 
+## Responsiveness
+- Every page must be fully responsive across all common screen sizes.
+- UI must remain usable on mobile, tablet, and desktop without horizontal scrolling.
+
 ## Performance
 - Avoid rendering large boards without optimization.
 - Use optimistic updates only with rollback safeguards.
@@ -47,4 +64,3 @@
 
 ## Comments in Code
 - Write comments in English.
-
