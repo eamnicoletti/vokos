@@ -1,224 +1,174 @@
 # Vokos - Architecture
 
-## 1. Scope and Status
+## 1. Scope
 
-This document defines the implementation architecture for Vokos MVP.
+This document defines the current product architecture and onboarding model for Vokos.
 
-Source of truth:
-- `docs/MVP_ARCHITECTURE_BASELINE_V1.md`
-
-If this document conflicts with the baseline, the baseline wins.
+Primary references:
+- `docs/PRODUCT_VISION.md`
+- `docs/SECURITY.md`
+- `docs/DATABASE_SCHEMA.md`
+- `.cursor/rules.md`
 
 ## 2. Architecture Goals
 
-- Reliability for legal task execution
-- Strict multi-tenant isolation
-- Clear service boundaries
-- Full auditability of critical operations
-- Fast iteration without infrastructure overengineering
+- enforce strict multi-tenant isolation
+- support organization-based billing and limits
+- keep Kanban execution flows fast for legal teams
+- preserve traceability for critical operations
+- allow product expansion to granular permissions (V2 RBAC)
 
-## 3. System Overview
+## 3. High-Level Architecture
 
 Main components:
-- `apps/web` (Next.js App Router): product UI, server actions, internal APIs, webhook handlers
-- `services/ai_server` (FastAPI): preprocessing, classification, structured extraction using Gemini
-- Supabase (Postgres + Auth + RLS): identity and transactional data
-- Stripe: billing source of truth
+- `apps/web` (Next.js App Router): UI, authenticated app flows, server actions, webhook handlers
+- `services/ai_server` (FastAPI): parsing + structured extraction from legal communications (Google Gemini)
+- Supabase (Auth + Postgres + RLS): identity, membership, and transactional data
+- Stripe: financial source of truth for paid organizations
 
-Core flow:
-1. User authenticates and acts inside one workspace
-2. Web app reads/writes workspace-scoped entities
-3. Ingestion item is created from email source
-4. AI server processes sanitized content
-5. Web backend validates output and creates task
-6. Audit events are appended for critical actions
+```mermaid
+flowchart LR
+  U[User] --> W[Web App\nNext.js]
+  W --> A[Supabase Auth]
+  W --> D[Supabase Postgres + RLS]
+  W --> S[Stripe]
+  W --> P[AI Server\nFastAPI]
+  P --> W
+```
 
-## 4. Monorepo Boundaries
-
-- `apps/web` must not include Python runtime logic
-- `services/ai_server` must not include frontend logic
-- `packages/shared` stores versioned contracts and shared schemas
-- No direct circular imports across app/service boundaries
-
-## 5. Locked Technology Decisions
-
-Web:
-- Next.js App Router + TypeScript
-- TailwindCSS + shadcn/ui
-- Outfit as global font
-- shadcn `neutral` design tokens (`primary: neutral-950`, background `neutral-50`)
-- `sonner` as the standard feedback channel for user-facing async actions
-
-Data/Auth:
-- Supabase Auth + Postgres + RLS
-
-AI:
-- FastAPI service
-- Google Gemini as provider
-- JSON schema validated outputs only
-
-Billing:
-- Stripe webhooks synchronized to local billing tables
-
-## 6. Tenant Model and Access
-
-Tenant unit:
-- `workspace`
-
-Hard rules:
-- Every tenant table includes `workspace_id`
-- Every query is workspace-scoped
-- RLS is enabled on all multi-tenant tables
-- Backend role authorization is required for mutable actions
-- No secrets (API keys, tokens, credentials) in repo, frontend bundles, logs, or documentation
-
-MVP roles:
-- `admin`
-- `manager`
-- `member`
-
-## 6.1 UX Interaction Baseline (MVP)
+## 4. Onboarding and Access Flow
 
 Rules:
-- Authenticated routes must render the application sidebar.
-- Sidebar must expose workspace navigation and account/session actions.
-- Mutating actions must provide explicit feedback (loading/success/error) via Sonner.
-- Data entry and edits use `Dialog`; critical confirmations use `AlertDialog`.
+- user account is free
+- product usage requires paid organization membership
+- membership comes from organization creation or invitation acceptance
 
-## 7. Domain Model (MVP)
+```mermaid
+flowchart TD
+  L[User logs in] --> M{Has organization membership?}
+  M -- Yes --> O[Organization selector]
+  O --> APP[Enter app in selected organization]
+  M -- No --> C[Create Organization flow]
+  C --> PLAN[Select paid plan]
+  PLAN --> SUB[Create Stripe subscription]
+  SUB --> APP
+```
 
-Required entities:
+## 5. Tenant and Domain Hierarchy
+
+```text
+User
+  -> Organization
+    -> Workspaces
+      -> Boards
+        -> Lists
+          -> Tasks
+```
+
+Architecture boundaries:
+- `Organization` is the billing and membership boundary.
+- `Workspace` is the operational isolation boundary used by app domain data access.
+- Domain reads/writes for boards/lists/tasks must remain scoped by `workspace_id`.
+
+## 6. Subscription and Billing Model
+
+Hard rules:
+- each organization maps to exactly one Stripe subscription
+- a user may own multiple organizations
+- each owned organization has an independent subscription lifecycle
+- plan limits are enforced per organization
+
+Plan-limited dimensions:
+- users
 - workspaces
-- workspace_members
-- projects
-- boards
-- lists
-- tasks
-- task_comments
-- audit_events
-- ingestion_items
-- integrations
-- billing_customers
-- billing_subscriptions
-- billing_events
+- monitored processes
 
-Task provenance fields (mandatory):
-- `created_by_type` (`human|bot|system`)
-- `source_type` (`manual|email|dje|portal`)
-- `edited_count`
-- `last_edited_at`
-- `last_edited_by_user_id`
+Backend responsibilities:
+- verify Stripe webhook signatures
+- enforce webhook idempotency
+- mirror subscription state into billing tables
+- block or gate actions that exceed organization plan limits
 
-## 8. API and Service Contracts
+## 7. Permission Model
 
-Principle:
-- AI server never writes directly to the database.
-- AI server and web backend never send email or edit drafts through customer mailbox credentials.
+### 7.1 MVP permissions
+Only organization owner can:
+- create workspaces
+- invite members
+- remove members
 
-Contract:
-1. Web backend sends sanitized extraction request to AI server
-2. AI server returns validated structured payload
-3. Web backend applies business rules and persists entities
-4. Web backend writes audit events
+Members can:
+- view boards
+- move tasks
+- edit tasks
 
-Required correlation fields in inter-service calls:
-- `workspace_id`
-- `ingestion_item_id`
-- `correlation_id`
+Members cannot:
+- create workspaces
+- invite users
+- delete organization
 
-Email capability boundary:
-- customer mailbox integrations are read-only (ingest only)
-- no internal endpoint should perform send/reply/draft with customer mailbox credentials
-- future outbound email is allowed only from Vokos-owned channels/credentials
+### 7.2 V2 roadmap (documented only)
+Planned granular permissions:
+- create workspaces
+- invite users
+- remove users
+- delete tasks
+- manage boards
 
-## 9. Ingestion and AI Pipeline (MVP)
+This requires a more advanced RBAC layer than MVP owner/member controls.
 
-MVP source:
-- Email only
+## 8. Invitation Architecture
 
-Pipeline stages:
-1. Ingestion capture and dedup hash creation
-2. Deterministic preprocessing (regex/date/process patterns)
-3. Classification
-4. Structured extraction (Gemini)
-5. Task creation or review routing
+Invitation flow:
+1. owner invites by email
+2. system creates pending invitation tied to organization
+3. if email already has account: activate membership immediately
+4. if email is new: user signs up then invitation is resolved and membership activated
 
-Routing rules:
-- low confidence -> "Revisao" list
-- valid confidence -> target workflow list
-- duplicate hash in same workspace -> no duplicate task
+Security notes:
+- invitation acceptance must validate token and intended email
+- membership creation must be idempotent
+- audit trail must record invite, accept, revoke
 
-## 10. Background Processing
+## 9. AI and Task Automation Boundary
 
-MVP processing model:
-- single worker pattern with scheduled jobs
-- retry with exponential backoff
-- terminal failure status persisted for manual handling
+MVP ingestion source:
+- email-first legal communication flow
+- Google Gemini is the current extraction provider
 
-No day-1 dependency on Redis/BullMQ.
+Pipeline:
+1. ingestion captured in app backend
+2. sanitized payload sent to AI server
+3. AI server returns structured extraction
+4. web backend validates and persists tasks
 
-## 11. Billing Architecture
+Constraints:
+- AI server does not write directly to Postgres
+- AI server does not access user sessions
+- customer mailbox integrations are read-only
 
-Billing model:
-- Stripe is financial source of truth
-- local billing tables mirror status for app enforcement
+## 10. Data and Isolation Rules
 
-Required webhook behavior:
-- signature verification
-- event idempotency using `stripe_event_id`
-- auditable updates to subscription state
+- RLS enabled for tenant tables
+- organization/workspace relation must be consistent on writes
+- task operations must remain board/list/workspace consistent
+- critical mutations append audit events
 
-Plan enforcement in backend:
-- active users limit
-- monthly processed events limit
-
-## 12. Observability and Operations
-
-Logging:
-- structured JSON logs
-- redacted sensitive fields
-- correlation by request/job ids
-
-Required MVP metrics:
-- ingestion_success_rate
-- extraction_success_rate
-- bot_task_creation_latency
-- failed_jobs_count
-
-Alerting minimum:
-- ingestion failures spike
-- extraction failures spike
-- webhook processing failures
-
-## 13. Deployment Model (MVP)
+## 11. Deployment Model
 
 - Web app: Vercel
-- AI server: managed container platform (Railway/Fly/Render)
-- Database/Auth/Storage: Supabase managed
+- AI server: managed container runtime
+- Database/Auth: Supabase
+- Payments: Stripe
 
 Environments:
 - local
 - preview
 - production
 
-Each environment must have a documented variable matrix.
+## 12. Architecture Decisions Locked for Current Product Model
 
-## 14. CI/CD Baseline
-
-Required CI checks:
-- lint
-- typecheck
-- essential unit tests
-- migration/schema validation
-
-Merge to main must be blocked on CI failure.
-
-## 15. Post-MVP Direction
-
-Explicitly post-MVP architecture items:
-- DJE ingestion automation
-- tribunal portal integrations
-- agentic orchestration (OpenClaw)
-- advanced legal timeline intelligence
-- Flutter mobile app for task viewing and management
-- Mobile app data access: direct Supabase client for standard task CRUD, backend-only for privileged operations
+- onboarding is organization-first after login
+- billing is subscription-per-organization
+- limits are organization-level and enforced in backend
+- operational task domain remains workspace-scoped

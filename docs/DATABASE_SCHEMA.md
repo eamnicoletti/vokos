@@ -1,102 +1,231 @@
-# Vokos - Database Schema (MVP)
+# Vokos - Database Schema
 
 ## 1. Scope
 
-This document defines the MVP data model for Vokos using:
-- Supabase Auth
-- Postgres
-- Row Level Security (RLS)
-- Stripe billing synchronization
+This document defines the current data model for:
+- free user accounts
+- paid organizations
+- workspace-based Kanban operations
+- Stripe subscription synchronization
+- per-organization plan limit enforcement
 
-Source alignment:
-- `docs/MVP_ARCHITECTURE_BASELINE_V1.md`
+Primary references:
+- `docs/PRODUCT_VISION.md`
 - `docs/ARCHITECTURE.md`
 - `docs/SECURITY.md`
+- `.cursor/rules.md`
 
-## 2. Global Rules
+## 2. Core Data Rules
 
 Mandatory rules:
-- all tenant domain tables include `workspace_id uuid not null`
-- all tenant domain tables run with RLS enabled
-- all app queries are workspace-scoped
-- audit events are append-only
+- `organization` is the billing and membership boundary
+- each organization maps to exactly one Stripe subscription
+- plan limits are enforced per organization
+- operational task-domain tables remain workspace-scoped (`workspace_id`)
+- RLS is enabled for tenant tables
+- critical actions are auditable
 
-Naming and data conventions:
-- `id uuid` primary keys
+Global conventions:
+- UUID primary keys (`id uuid`)
 - `created_at timestamptz default now()`
-- `updated_at timestamptz default now()` where mutable
+- `updated_at timestamptz default now()` on mutable tables
 
-## 3. Enums
+## 3. Hierarchy and Entity Map
+
+```mermaid
+erDiagram
+  USER ||--o{ ORGANIZATION_MEMBER : belongs_to
+  USER ||--o{ ORGANIZATION : owns
+  ORGANIZATION ||--o{ WORKSPACE : contains
+  ORGANIZATION ||--o{ ORGANIZATION_MEMBER : has
+  ORGANIZATION ||--o{ ORGANIZATION_INVITATION : has
+  ORGANIZATION ||--|| BILLING_CUSTOMER : billed_as
+  ORGANIZATION ||--|| BILLING_SUBSCRIPTION : subscribed_as
+  WORKSPACE ||--o{ BOARD : contains
+  BOARD ||--o{ LIST : contains
+  LIST ||--o{ TASK : contains
+```
+
+## 4. Enums
 
 Recommended enums:
-- `workspace_role`: `admin`, `manager`, `member`
+- `organization_role`: `owner`, `member`
+- `invitation_status`: `pending`, `accepted`, `expired`, `revoked`
+- `plan_code`: `essencial`, `equipe`, `enterprise`
+- `subscription_status`: `incomplete`, `trialing`, `active`, `past_due`, `canceled`, `unpaid`
 - `created_by_type`: `human`, `bot`, `system`
-- `source_type`: `manual`, `email`, `dje`, `portal`
-- `ingestion_status`: `new`, `processing`, `processed`, `failed`, `ignored`
+- `source_type`: `manual`, `email`, `tribunal`, `portal`
 - `task_priority`: `low`, `medium`, `high`, `urgent`
 
-## 4. Core Tenant Tables
+## 5. Identity, Organization, and Billing Tables
 
-### 4.1 workspaces
+### 5.1 organizations
+Purpose:
+- law firm container and billing anchor
+
 Fields:
 - `id`
 - `name`
 - `slug` (unique)
 - `owner_user_id` -> `auth.users.id`
+- `active_plan plan_code`
+- `status` (`active`, `suspended`, `canceled`)
 - timestamps
 
 Indexes:
 - unique(`slug`)
 - index(`owner_user_id`)
+- index(`active_plan`)
 
-### 4.2 workspace_members
+### 5.2 organization_members
+Purpose:
+- membership and role assignment by organization
+
 Fields:
 - `id`
-- `workspace_id` -> `workspaces.id`
+- `organization_id` -> `organizations.id`
 - `user_id` -> `auth.users.id`
-- `role workspace_role`
+- `role organization_role`
 - `is_active boolean default true`
 - `invited_by_user_id` (nullable)
+- `joined_at` (nullable)
 - timestamps
 
 Constraints and indexes:
-- unique(`workspace_id`, `user_id`)
+- unique(`organization_id`, `user_id`)
 - index(`user_id`)
-- index(`workspace_id`, `role`)
+- index(`organization_id`, `role`)
 
-### 4.3 projects
+### 5.3 organization_invitations
+Purpose:
+- email invitation lifecycle
+
 Fields:
 - `id`
-- `workspace_id` -> `workspaces.id`
-- `name`
-- `description` (nullable)
-- `client_name` (nullable)
-- `is_archived boolean default false`
-- `created_by_user_id` (nullable)
+- `organization_id` -> `organizations.id`
+- `email`
+- `invited_by_user_id`
+- `token_hash`
+- `status invitation_status`
+- `expires_at`
+- `accepted_at` (nullable)
+- `accepted_user_id` (nullable)
+- timestamps
+
+Constraints and indexes:
+- unique(`organization_id`, `email`) where `status='pending'`
+- index(`organization_id`, `status`)
+- index(`email`)
+
+### 5.4 billing_customers
+Purpose:
+- Stripe customer mapping
+
+Fields:
+- `organization_id` (pk, fk -> `organizations.id`)
+- `stripe_customer_id` (unique)
+- timestamps
+
+### 5.5 billing_subscriptions
+Purpose:
+- one subscription per organization
+
+Fields:
+- `id`
+- `organization_id` (unique, fk -> `organizations.id`)
+- `stripe_subscription_id` (unique)
+- `stripe_price_id`
+- `plan_code plan_code`
+- `status subscription_status`
+- `current_period_start` (nullable)
+- `current_period_end` (nullable)
+- `cancel_at_period_end boolean default false`
+- `canceled_at` (nullable)
+- `metadata jsonb` (nullable)
 - timestamps
 
 Indexes:
-- index(`workspace_id`)
-- index(`workspace_id`, `is_archived`)
+- unique(`organization_id`)
+- index(`status`)
 
-### 4.4 boards
+### 5.6 billing_events
+Purpose:
+- webhook idempotency and processing history
+
 Fields:
 - `id`
+- `stripe_event_id` (unique)
+- `organization_id` (nullable)
+- `type`
+- `payload jsonb`
+- `received_at`
+- `processed_at` (nullable)
+- `error` (nullable)
+
+## 6. Plan Limit and Usage Tables
+
+### 6.1 plan_limits (reference)
+Purpose:
+- canonical limits by plan
+
+Fields:
+- `plan_code` (pk)
+- `max_users` (nullable for unlimited)
+- `max_workspaces` (nullable for unlimited)
+- `max_monitored_processes` (nullable for unlimited)
+
+Required records:
+- `essencial`: users 1, workspaces 1, processes 40
+- `equipe`: users 5, workspaces 5, processes 300
+- `enterprise`: unlimited
+
+### 6.2 organization_usage
+Purpose:
+- fast counters for enforcement
+
+Fields:
+- `organization_id` (pk)
+- `active_users_count`
+- `active_workspaces_count`
+- `monitored_processes_count`
+- `updated_at`
+
+Rules:
+- counters are derived server-side
+- client-provided counts are never trusted
+
+## 7. Workspace and Kanban Domain Tables
+
+### 7.1 workspaces
+Fields:
+- `id`
+- `organization_id` -> `organizations.id`
+- `name`
+- `slug`
+- `is_archived boolean default false`
+- timestamps
+
+Constraints and indexes:
+- unique(`organization_id`, `slug`)
+- index(`organization_id`)
+
+### 7.2 boards
+Fields:
+- `id`
+- `organization_id` -> `organizations.id`
 - `workspace_id` -> `workspaces.id`
-- `project_id` -> `projects.id`
 - `name`
 - `description` (nullable)
 - `is_default boolean default false`
-- `created_by_user_id` (nullable)
 - timestamps
 
 Indexes:
-- index(`workspace_id`)
-- index(`project_id`)
+- index(`organization_id`, `workspace_id`)
 
-### 4.5 lists
+### 7.3 lists
 Fields:
 - `id`
+- `organization_id` -> `organizations.id`
 - `workspace_id` -> `workspaces.id`
 - `board_id` -> `boards.id`
 - `name`
@@ -108,23 +237,22 @@ Constraints and indexes:
 - unique(`board_id`, `position`)
 - index(`workspace_id`, `board_id`)
 
-### 4.6 tasks
+### 7.4 tasks
 Fields:
 - `id`
+- `organization_id` -> `organizations.id`
 - `workspace_id` -> `workspaces.id`
-- `project_id` -> `projects.id`
 - `board_id` -> `boards.id`
 - `list_id` -> `lists.id`
 - `title`
 - `description` (nullable)
-- `position numeric default 1000`
+- `position numeric`
 - `due_date` (nullable)
 - `priority task_priority` (nullable)
 - `assignee_user_id` (nullable)
 - `is_archived boolean default false`
 - `created_by_type created_by_type`
 - `created_by_user_id` (nullable)
-- `created_by_bot_id` (nullable)
 - `source_type source_type default 'manual'`
 - `source_ref_id` (nullable)
 - `source_summary` (nullable)
@@ -138,16 +266,11 @@ Indexes:
 - index(`workspace_id`, `board_id`, `list_id`)
 - index(`workspace_id`, `assignee_user_id`)
 - index(`workspace_id`, `due_date`)
-- index(`workspace_id`, `is_archived`)
 
-Integrity rules:
-- if `created_by_type='human'` then `created_by_user_id` is required
-- bot-created tasks should have non-manual source
-- relationship consistency checks must enforce same `workspace_id` across task/project/board/list
-
-### 4.7 task_comments
+### 7.5 task_comments
 Fields:
 - `id`
+- `organization_id` -> `organizations.id`
 - `workspace_id` -> `workspaces.id`
 - `task_id` -> `tasks.id`
 - `author_user_id` -> `auth.users.id`
@@ -157,165 +280,97 @@ Fields:
 Indexes:
 - index(`workspace_id`, `task_id`, `created_at`)
 
-## 5. Automation and Integrations
+## 8. Monitored Process Tracking
 
-### 5.1 ingestion_items
+### 8.1 monitored_processes
+Purpose:
+- track processes counted against plan limits
+
 Fields:
 - `id`
+- `organization_id` -> `organizations.id`
 - `workspace_id` -> `workspaces.id`
-- `source_type source_type`
-- `external_id` (nullable)
-- `received_at`
-- `status ingestion_status`
-- `hash`
-- `subject` (nullable)
-- `from_address` (nullable)
-- `to_address` (nullable)
-- `payload_ref` (nullable)
-- `text_preview` (nullable, redacted)
-- `parsed_json jsonb` (nullable)
-- `error_message` (nullable)
-- `processed_at` (nullable)
+- `process_number`
+- `source` (`email`, `tribunal`, `manual`)
+- `status` (`active`, `archived`)
+- `first_seen_at`
+- `last_seen_at` (nullable)
 - timestamps
 
 Constraints and indexes:
-- unique(`workspace_id`, `hash`)
-- index(`workspace_id`, `status`, `received_at`)
+- unique(`organization_id`, `process_number`)
+- index(`organization_id`, `status`)
+- index(`workspace_id`, `status`)
 
-### 5.2 integrations
+## 9. Audit Tables
+
+### 9.1 audit_events
 Fields:
 - `id`
-- `workspace_id` -> `workspaces.id`
-- `provider`
-- `status` (`active`, `revoked`, `error`)
-- `created_by_user_id` (nullable)
-- `connected_at` (nullable)
-- `revoked_at` (nullable)
-- `encrypted_access_token` (nullable)
-- `encrypted_refresh_token` (nullable)
-- `token_expires_at` (nullable)
-- `token_scopes text[]` (nullable)
-- `config_json jsonb` (nullable)
-- `last_sync_at` (nullable)
-- `last_error` (nullable)
-- timestamps
-
-Indexes:
-- index(`workspace_id`, `provider`)
-
-Rule:
-- integration tokens are server-side only and never exposed to frontend clients.
-- customer mailbox integrations must be read-only in `token_scopes`.
-- integrations with send/write/draft scopes must not be activated.
-- once credentials are stored, values are not returned to user-facing clients (write-only secret UX).
-
-## 6. Audit
-
-### 6.1 audit_events
-Fields:
-- `id`
-- `workspace_id` -> `workspaces.id`
+- `organization_id` -> `organizations.id`
+- `workspace_id` (nullable)
 - `entity_type`
 - `entity_id`
 - `action`
 - `actor_type created_by_type`
 - `actor_user_id` (nullable)
-- `actor_bot_id` (nullable)
 - `occurred_at`
 - `diff_json jsonb` (nullable)
 - `metadata jsonb` (nullable)
 
 Indexes:
-- index(`workspace_id`, `entity_type`, `entity_id`, `occurred_at desc`)
+- index(`organization_id`, `occurred_at desc`)
 - index(`workspace_id`, `occurred_at desc`)
+- index(`entity_type`, `entity_id`, `occurred_at desc`)
 
-Immutability rule:
-- prevent UPDATE/DELETE operations by policy or trigger.
+Immutability:
+- prevent UPDATE/DELETE via policy or trigger
 
-## 7. Billing (Stripe Mirror)
+## 10. Integrity Requirements
 
-### 7.1 billing_customers
-Fields:
-- `workspace_id` (pk, fk to `workspaces.id`)
-- `stripe_customer_id` (unique)
-- timestamps
+Required consistency checks:
+- `workspaces.organization_id` must match parent organization
+- `boards/lists/tasks/comments` organization/workspace chain must match
+- `billing_subscriptions.organization_id` is unique (one subscription per organization)
+- owner membership must exist for `organizations.owner_user_id`
 
-### 7.2 billing_subscriptions
-Fields:
-- `id`
-- `workspace_id` -> `workspaces.id`
-- `stripe_subscription_id` (unique)
-- `status`
-- `stripe_price_id`
-- `current_period_start` (nullable)
-- `current_period_end` (nullable)
-- `cancel_at_period_end boolean default false`
-- `canceled_at` (nullable)
-- `trial_end` (nullable)
-- `metadata jsonb` (nullable)
-- timestamps
+Enforcement approach:
+- DB constraints + triggers for invariants
+- backend validations for business-level checks
 
-Indexes:
-- index(`workspace_id`, `status`)
+## 11. RLS Baseline
 
-### 7.3 billing_events
-Fields:
-- `id`
-- `stripe_event_id` (unique)
-- `type`
-- `workspace_id` (nullable)
-- `payload jsonb`
-- `received_at`
-- `processed_at` (nullable)
-- `error` (nullable)
+RLS policy principles:
+- organization-level tables: member of organization required
+- workspace-level tables: member of organization + valid workspace linkage
+- owner-only mutations enforced in backend (MVP)
 
-Purpose:
-- webhook idempotency
-- processing traceability
+Policy baseline:
+- `SELECT`: organization member only
+- `INSERT/UPDATE/DELETE`: authenticated member with backend role checks
 
-## 8. Relationship Integrity Requirements
+## 12. Plan Enforcement Rules (Backend + DB)
 
-The following relations must remain workspace-consistent:
-- project belongs to same workspace as board
-- board belongs to same workspace as list
-- task workspace matches project, board, and list workspaces
-- comment workspace matches task workspace
+Enforcement points:
+- before adding a member, check `max_users`
+- before creating workspace, check `max_workspaces`
+- before activating monitored process, check `max_monitored_processes`
 
-Enforcement options:
-- database triggers (recommended)
-- plus backend validation guards
+Operational requirements:
+- transactional checks to avoid race-condition overages
+- hard denial on exceeded limits
+- audit denied actions with reason and counters
 
-## 9. RLS Baseline
+## 13. V2 RBAC Extension (Documented, Not Implemented)
 
-RLS must be enabled in all tenant tables.
+Future schema extension for granular permissions:
+- `permissions` catalog
+- `organization_member_permissions` mapping
+- optional role templates per organization
 
-Recommended helper function pattern:
-- `is_workspace_member(workspace_id)` using `auth.uid()` and active membership
-
-Policy baseline per tenant table:
-- `SELECT`: workspace member only
-- `INSERT`: workspace member only (with check)
-- `UPDATE/DELETE`: workspace member with backend role checks
-
-MVP practical model:
-- RLS guarantees tenant isolation
-- backend enforces role-specific business authorization
-
-## 10. Operational Requirements
-
-Required triggers:
-- auto-update `updated_at` on mutable tables
-- optional audit trigger hardening after backend audit flow is stable
-
-Required dedup behavior:
-- ingestion dedup by (`workspace_id`, `hash`)
-
-Required migration discipline:
-- all schema changes must update this document and architecture/security docs when applicable
-
-## 11. Post-MVP Extensions (Not in MVP)
-
-- process entity expansion and legal timeline modeling
-- task attachments and watchers
-- DJE and tribunal portal ingestion models
-- advanced automation rules
+Target permission examples:
+- create workspaces
+- invite users
+- remove users
+- delete tasks
+- manage boards

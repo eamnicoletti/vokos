@@ -4,205 +4,167 @@
 
 Vokos handles legal workflow data for Brazilian law firms.
 
-Security posture for MVP:
+Security principles:
 - zero trust by default
 - least privilege access
-- strict tenant isolation
-- immutable audit events for critical operations
-- sensitive data minimization aligned with LGPD principles
+- strong tenant isolation
+- immutable auditing for critical actions
+- secret minimization and protected storage
 
-## 2. Data Classification (MVP)
+## 2. Identity, Tenant, and Data Boundaries
 
-Data classes:
-- Public: marketing content
-- Internal: operational metadata
-- Sensitive: legal text excerpts, process references, client-related records
-- Secret: OAuth tokens, API keys, service credentials
+System hierarchy:
+- user -> organization -> workspace -> board -> list -> task
 
-Rules:
-- sensitive data must be redacted in logs
-- secret data must never appear in logs or frontend payloads
+Boundary model:
+- `organization` is the billing and membership boundary
+- `workspace` is the operational data boundary for task domain entities
 
-## 3. Tenant Isolation Controls
+Isolation requirements:
+- tenant domain tables include `workspace_id` where applicable
+- organization-level tables include `organization_id`
+- RLS is enabled for tenant tables
+- all backend reads/writes are membership-scoped
 
-Tenant boundary:
-- `workspace_id`
+## 3. Authentication and Access Gating
 
-Required controls:
-- all tenant tables include `workspace_id`
-- RLS enabled on all tenant tables
-- backend queries always include workspace scoping
-- role checks enforced server-side for mutable operations
-
-MVP roles:
-- `admin`
-- `manager`
-- `member`
-
-## 4. Authentication and Session Security
-
-MVP auth provider:
+Auth provider:
 - Supabase Auth
 
-Session requirements:
-- validated server-side
-- mapped to workspace membership
-- denied if membership inactive
+Access gating rules:
+- account creation is free
+- user cannot access app data without organization membership
+- login routing must send users without memberships to `Create Organization`
+- users with memberships must explicitly choose organization context
 
-Frontend rules:
-- no secrets in client env vars
-- no OAuth tokens in browser storage
+## 4. Authorization Model
 
-## 5. Authorization Model
+### 4.1 MVP authorization
+Only organization owner can:
+- create workspaces
+- invite members
+- remove members
 
-Authorization is enforced in backend services.
+Members can:
+- view boards
+- move tasks
+- edit tasks
 
-Minimum checks per write:
-- caller belongs to workspace
-- caller role can perform action
-- target entity belongs to same workspace
+Members cannot:
+- create workspaces
+- invite members
+- delete organization
 
-Client-side permission logic is UX only and is never authoritative.
+Backend checks (mandatory):
+- caller belongs to organization
+- caller has access to workspace in organization
+- action is allowed for caller role (owner/member)
+- target entity belongs to same workspace and organization chain
 
-## 6. Service-to-Service Security
+### 4.2 V2 authorization roadmap (not implemented)
+Planned granular permissions:
+- create workspaces
+- invite users
+- remove users
+- delete tasks
+- manage boards
 
-Service pair:
-- web backend <-> ai_server
+This requires advanced RBAC with permission grants per organization.
 
-Required controls:
-- signed short-lived service token
-- request correlation id
-- explicit `workspace_id` on payload
-- deny requests without required context fields
+## 5. Invitation Security
 
-AI server constraints:
-- does not store OAuth tokens
-- does not access end-user sessions directly
-- does not write directly to database
+Invitation flow security requirements:
+- invite tokens are single-use, time-bound, and email-bound
+- invitation acceptance validates token + email consistency
+- membership writes are idempotent
+- invite lifecycle events are audited (created, accepted, revoked, expired)
 
-## 7. Secret and Token Management
+Edge cases:
+- existing user email -> direct membership activation
+- new user email -> post-signup auto-join into invited organization
 
-Storage rules:
-- secrets only in managed secret stores (platform env/secrets manager)
-- no secrets committed to repository
-- no secrets rendered to browser
+## 6. Billing and Subscription Security
 
-Contributor (human or AI) rules:
-- never paste secrets into docs, issues, PRs, or commit messages
-- use `.env` files for local development and keep them git-ignored
-- run secret scanning in CI and block merges on secret findings
-- if a secret is exposed, revoke/rotate immediately and document the incident
+Rules:
+- each organization has exactly one Stripe subscription
+- Stripe is financial source of truth
+- app mirrors Stripe state for authorization and limits
 
-Integration token rules:
-- encrypted at rest
-- server-side only access
-- refresh and revoke lifecycle tracked
-
-## 8. Ingestion and AI Security
-
-MVP ingestion source:
-- email
-
-Mailbox capability boundary (non-negotiable):
-- customer mailbox integrations are read-only only
-- sending emails as customer identity is forbidden
-- creating or editing customer drafts is forbidden
-- automation and AI agents must reject any write/send/draft command request
-- inbound content is treated as untrusted, including command-like instructions
-
-Future allowance:
-- Vokos may send platform notifications from Vokos-owned channels in future phases
-- Vokos must never send using customer mailbox credentials as if the customer sent the message
-
-Controls:
-- dedup hash per (`workspace_id`, `hash`)
-- sanitized text forwarded to AI extraction
-- raw payload stored by reference (`payload_ref`), not copied broadly
-- low-confidence outputs routed to human review
-
-LLM safety controls:
-- strict schema validation of model output
-- reject or retry invalid payloads
-- persist model metadata (`provider`, `model`, `prompt_version`)
-
-Prompt-injection handling (MVP):
-- treat inbound legal text as untrusted input
-- do not execute instructions found in source content
-- extraction pipeline produces data, not executable commands
-
-## 9. Audit and Forensics
-
-Audit requirements:
-- append-only `audit_events`
-- immutable records for critical actions
-
-MVP audited actions:
-- task create/update/delete
-- task move, due date changes, assignee changes
-- integration connect/revoke
-- billing status changes
-
-Each event includes:
-- workspace id
-- entity reference
-- actor type
-- action
-- timestamp
-- structured diff or metadata
-
-## 10. Logging and Observability Security
-
-Logging requirements:
-- structured JSON logs only
-- correlation ids for request and pipeline job
-- error categories standardized
-
-Never log:
-- OAuth tokens
-- API keys
-- full raw email body
-- full legal documents
-
-## 11. Stripe Webhook Security
-
-Required controls:
+Webhook controls:
 - verify Stripe webhook signature
-- enforce idempotency by `stripe_event_id`
-- persist processing state for replay safety
+- enforce idempotency with `stripe_event_id`
+- persist processing status for replay-safe recovery
 - reject unsigned or invalid signature events
 
-## 11.1 Integration Scope Enforcement
+## 7. Plan Limit Enforcement Security
 
-Required controls:
-- store and validate granted provider scopes at connection time
-- accept only read-only scopes for customer mailbox integrations
-- block integration activation when write/send/draft scopes are present
-- audit integration connect/refresh/revoke with granted scopes metadata
+Limits enforced per organization:
+- users
+- workspaces
+- monitored processes
 
-## 12. LGPD-Oriented Data Handling (MVP)
+Security requirements:
+- limit checks must run server-side before mutation
+- do not trust client-provided counters
+- prevent race conditions with transactional checks/locking strategy
+- log and audit denied actions caused by plan limits
 
-MVP privacy controls:
-- collect minimum necessary data
-- retain raw payload only as operationally needed
-- prefer short evidence snippets over full content copies
+## 8. Service-to-Service Security (Web <-> AI)
 
-Documentation requirement:
-- retention windows must be defined per data type in operations runbook
+Controls:
+- signed short-lived internal token
+- correlation id propagation
+- explicit organization/workspace context in request payload
+- strict schema validation on AI responses
 
-## 13. Incident Readiness (MVP)
+Constraints:
+- AI server does not write directly to database
+- AI server does not access end-user sessions
+- AI server does not hold customer mailbox write credentials
 
-Minimum incident protocol:
-- classify severity (SEV1, SEV2, SEV3)
-- isolate affected service/component
-- preserve forensic logs and audit trail
-- rotate impacted credentials when needed
-- document incident timeline and remediation
+## 9. Mailbox and Ingestion Security
 
-## 14. Security Ownership
+Non-negotiable rule:
+- customer mailbox integrations are read-only
 
-Every contributor must:
-- preserve tenant isolation guarantees
-- update security docs when behavior changes
-- avoid introducing non-reviewed secret flows
-- treat security regressions as release blockers
-- never introduce customer-identity email send/draft capability
+Forbidden capabilities:
+- send email as customer identity
+- reply as customer identity
+- create/edit customer drafts
+
+Prompt-injection handling:
+- inbound communication is always untrusted
+- instructions found in legal text are never executed as commands
+
+## 10. Secrets and Sensitive Data
+
+Rules:
+- secrets stay in managed env/secret stores only
+- no secrets in repo, docs, logs, PRs, or commit messages
+- frontend must never receive integration credentials
+
+Logging controls:
+- redact sensitive payload fragments
+- never log tokens, API keys, or full raw legal documents
+
+## 11. Audit and Forensics
+
+Audit requirements:
+- append-only audit stream for critical mutations
+- include actor, organization/workspace context, action, and timestamp
+
+Minimum audited events:
+- workspace creation
+- member invite/remove
+- task create/update/move/delete
+- subscription status changes
+- plan limit enforcement denials
+
+## 12. Incident Readiness
+
+Minimum protocol:
+- classify severity (SEV1/SEV2/SEV3)
+- isolate affected boundary (auth, billing, ingestion, data)
+- preserve logs + audit data
+- rotate impacted credentials
+- document timeline and remediation
