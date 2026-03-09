@@ -1,0 +1,13 @@
+{
+  "name": "vokos",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @vokos/web dev",
+    "dev:ai": "cd services/ai_server && uvicorn app.main:app --reload --port 8001",
+    "build:web": "pnpm --filter @vokos/web build",
+    "lint:web": "pnpm --filter @vokos/web lint",
+    "typecheck:web": "pnpm --filter @vokos/web typecheck"
+  }
+}
