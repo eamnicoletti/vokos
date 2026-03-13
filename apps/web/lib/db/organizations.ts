@@ -73,8 +73,12 @@ export type BillingEligibility = {
   hasStartedSubscriptionBefore: boolean;
 };
 
-const DEFAULT_BOARD_NAME = "Board Principal";
-const DEFAULT_LISTS = ["Inbox Juridico", "Em andamento", "Revisao", "Concluido"] as const;
+type BillingTrialClaimRecord = {
+  user_id: string;
+  email: string;
+  first_subscription_started_at: string;
+  trial_consumed_at: string | null;
+};
 
 export function getPlanLabel(planCode: OrganizationPlanCode) {
   if (planCode === "essencial") return "Essencial";
@@ -177,8 +181,54 @@ async function listOwnedOrganizationsWithBilling(userId: string) {
   }));
 }
 
+async function getBillingTrialClaim(params: { userId: string; email: string | null | undefined }) {
+  const admin = createAdminSupabaseClient();
+  const normalizedEmail = params.email?.trim().toLowerCase() ?? null;
+  const { data: directClaim, error: directClaimError } = await admin
+    .from("billing_trial_claims")
+    .select("user_id, email, first_subscription_started_at, trial_consumed_at")
+    .eq("user_id", params.userId)
+    .maybeSingle();
+
+  if (directClaimError) {
+    throw new Error(directClaimError.message);
+  }
+
+  if (directClaim) {
+    return directClaim as BillingTrialClaimRecord;
+  }
+
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const { data: emailClaim, error: emailClaimError } = await admin
+    .from("billing_trial_claims")
+    .select("user_id, email, first_subscription_started_at, trial_consumed_at")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+
+  if (emailClaimError) {
+    throw new Error(emailClaimError.message);
+  }
+
+  return (emailClaim as BillingTrialClaimRecord | null) ?? null;
+}
+
 export async function getMyBillingEligibility(): Promise<BillingEligibility> {
   const { user } = await requireAuthenticatedUser();
+  const trialClaim = await getBillingTrialClaim({
+    userId: user.id,
+    email: user.email
+  });
+
+  if (trialClaim?.first_subscription_started_at) {
+    return {
+      isEligibleForTrial: false,
+      hasStartedSubscriptionBefore: true
+    };
+  }
+
   const organizations = await listOwnedOrganizationsWithBilling(user.id);
 
   const hasStartedSubscriptionBefore = organizations.some(
@@ -203,114 +253,6 @@ async function findMyOrganizationDraftRecord(userId: string) {
         organization.membership?.is_active !== true
     ) ?? null
   );
-}
-
-async function ensureOrganizationWorkspace(params: {
-  organizationId: string;
-  organizationName: string;
-  ownerUserId: string;
-}) {
-  const admin = createAdminSupabaseClient();
-  let { data: workspace, error: workspaceError } = await admin
-    .from("workspaces")
-    .select("id, name, slug")
-    .eq("organization_id", params.organizationId)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (workspaceError) {
-    throw new Error(workspaceError.message);
-  }
-
-  if (!workspace) {
-    const workspaceSlug = await ensureUniqueSlug("workspaces", params.organizationName);
-    const { data: createdWorkspace, error: createWorkspaceError } = await admin
-      .from("workspaces")
-      .insert({
-        name: params.organizationName,
-        slug: workspaceSlug,
-        owner_user_id: params.ownerUserId,
-        organization_id: params.organizationId
-      })
-      .select("id, name, slug")
-      .single();
-
-    if (createWorkspaceError || !createdWorkspace) {
-      throw new Error(createWorkspaceError?.message ?? "Failed to create workspace");
-    }
-
-    workspace = createdWorkspace;
-  }
-
-  let { data: board, error: boardError } = await admin
-    .from("boards")
-    .select("id")
-    .eq("organization_id", params.organizationId)
-    .eq("workspace_id", workspace.id)
-    .eq("is_default", true)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (boardError) {
-    throw new Error(boardError.message);
-  }
-
-  if (!board) {
-    const { data: createdBoard, error: createBoardError } = await admin
-      .from("boards")
-      .insert({
-        workspace_id: workspace.id,
-        organization_id: params.organizationId,
-        name: DEFAULT_BOARD_NAME,
-        is_default: true,
-        created_by_user_id: params.ownerUserId
-      })
-      .select("id")
-      .single();
-
-    if (createBoardError || !createdBoard) {
-      throw new Error(createBoardError?.message ?? "Failed to create default board");
-    }
-
-    board = createdBoard;
-  }
-
-  const { data: existingLists, error: listsError } = await admin
-    .from("lists")
-    .select("name")
-    .eq("organization_id", params.organizationId)
-    .eq("workspace_id", workspace.id)
-    .eq("board_id", board.id);
-
-  if (listsError) {
-    throw new Error(listsError.message);
-  }
-
-  const existingListNames = new Set((existingLists ?? []).map((list) => list.name));
-  const missingLists = DEFAULT_LISTS.filter((name) => !existingListNames.has(name));
-
-  if (missingLists.length > 0) {
-    const { error: insertListsError } = await admin.from("lists").insert(
-      DEFAULT_LISTS.filter((name) => !existingListNames.has(name)).map((name) => ({
-        workspace_id: workspace.id,
-        organization_id: params.organizationId,
-        board_id: board.id,
-        name,
-        position: (DEFAULT_LISTS.indexOf(name) + 1) * 100
-      }))
-    );
-
-    if (insertListsError) {
-      throw new Error(insertListsError.message);
-    }
-  }
-
-  return {
-    workspaceId: workspace.id,
-    boardId: board.id
-  };
 }
 
 export async function listMyOrganizations() {
@@ -590,94 +532,4 @@ export async function saveMyOrganizationSetupDraft(input: {
   }
 
   return getMyOrganizationSetupDraft();
-}
-
-export async function activateMyOrganizationSubscription(input: {
-  organizationName: string;
-  planCode: OrganizationPlanCode;
-}) {
-  const draft = await saveMyOrganizationSetupDraft(input);
-
-  if (!draft) {
-    throw new Error("Organization draft not found");
-  }
-
-  const { supabase, user } = await requireAuthenticatedUser();
-  const billingEligibility = await getMyBillingEligibility();
-  const admin = createAdminSupabaseClient();
-  const now = new Date();
-  const currentPeriodStart = now.toISOString();
-  const currentPeriodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  const nextSubscriptionStatus = billingEligibility.isEligibleForTrial ? "trialing" : "active";
-  const { error: subscriptionError } = await admin.from("billing_subscriptions").upsert(
-    {
-      organization_id: draft.organizationId,
-      plan_code: input.planCode,
-      status: nextSubscriptionStatus,
-      current_period_start: currentPeriodStart,
-      current_period_end: currentPeriodEnd,
-      cancel_at_period_end: false,
-      canceled_at: null,
-      metadata: {
-        provider: "mock",
-        source: "organization_setup_activation",
-        activated_at: currentPeriodStart,
-        trial_started_at: billingEligibility.isEligibleForTrial ? currentPeriodStart : null
-      }
-    },
-    {
-      onConflict: "organization_id"
-    }
-  );
-
-  if (subscriptionError) {
-    throw new Error(subscriptionError.message);
-  }
-
-  const { error: organizationError } = await admin
-    .from("organizations")
-    .update({
-      name: input.organizationName.trim(),
-      status: "active"
-    })
-    .eq("id", draft.organizationId);
-
-  if (organizationError) {
-    throw new Error(organizationError.message);
-  }
-
-  const { error: membershipError } = await admin.from("organization_members").upsert(
-    {
-      organization_id: draft.organizationId,
-      user_id: user.id,
-      role: "owner",
-      is_active: true
-    },
-    {
-      onConflict: "organization_id,user_id"
-    }
-  );
-
-  if (membershipError) {
-    throw new Error(membershipError.message);
-  }
-
-  const { error: metadataError } = await supabase.auth.updateUser({
-    data: {
-      active_organization_id: draft.organizationId,
-      workspace_id: null,
-      workspace_role: null
-    }
-  });
-
-  if (metadataError) {
-    throw new Error(metadataError.message);
-  }
-
-  return {
-    organizationId: draft.organizationId,
-    workspaceId: null,
-    boardId: null,
-    subscriptionStatus: nextSubscriptionStatus
-  };
 }

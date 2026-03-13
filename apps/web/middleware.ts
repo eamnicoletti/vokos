@@ -43,6 +43,10 @@ function clearSupabaseAuthCookies(response: NextResponse, request: NextRequest, 
 }
 
 export async function middleware(request: NextRequest) {
+  if (request.nextUrl.pathname === "/api/stripe/webhook") {
+    return NextResponse.next();
+  }
+
   const env = getSupabasePublicEnv();
   const projectRef = getProjectRefFromUrl(env.supabaseUrl);
   let response = NextResponse.next({

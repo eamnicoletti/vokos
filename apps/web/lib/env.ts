@@ -35,3 +35,42 @@ export function getOptionalResendEnv() {
     fromEmail: process.env.RESEND_FROM_EMAIL
   };
 }
+
+export function getOptionalStripeEnv() {
+  return {
+    publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    essentialPriceId: process.env.STRIPE_PRICE_ESSENCIAL,
+    teamPriceId: process.env.STRIPE_PRICE_EQUIPE,
+    enterprisePriceId: process.env.STRIPE_PRICE_ENTERPRISE
+  };
+}
+
+export function getStripeSecretKey(): string {
+  return assertRequiredEnv("STRIPE_SECRET_KEY", process.env.STRIPE_SECRET_KEY);
+}
+
+export function getStripeWebhookSecret(): string {
+  return assertRequiredEnv("STRIPE_WEBHOOK_SECRET", process.env.STRIPE_WEBHOOK_SECRET);
+}
+
+export function isStripeCheckoutConfigured() {
+  const stripe = getOptionalStripeEnv();
+
+  return Boolean(
+    stripe.publishableKey &&
+      stripe.secretKey &&
+      stripe.essentialPriceId &&
+      stripe.teamPriceId &&
+      stripe.enterprisePriceId
+  );
+}
+
+export function isStripeWebhookConfigured() {
+  return Boolean(process.env.STRIPE_WEBHOOK_SECRET);
+}
+
+export function isStripeBillingConfigured() {
+  return isStripeCheckoutConfigured() && isStripeWebhookConfigured();
+}

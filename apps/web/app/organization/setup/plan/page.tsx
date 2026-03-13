@@ -1,5 +1,6 @@
 import type { Route } from "next";
 import { redirect } from "next/navigation";
+import { isStripeBillingConfigured } from "@/lib/env";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentOrganization, getMyBillingEligibility, getMyOrganizationSetupDraft } from "@/lib/db/organizations";
 import { OrganizationSetupPlanStep } from "@/features/organization/organization-setup-plan-step";
@@ -32,6 +33,7 @@ export default async function OrganizationSetupPlanPage() {
       draft={draft}
       userEmail={user.email ?? ""}
       isEligibleForTrial={billingEligibility.isEligibleForTrial}
+      stripeReady={isStripeBillingConfigured()}
     />
   );
 }

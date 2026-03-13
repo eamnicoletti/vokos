@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { Route } from "next";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { ArrowLeft, ArrowRight, BadgeCheck, Check, CreditCard, Layers3, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
-import { activateOrganizationSetupAction, saveOrganizationSetupDraftAction } from "@/app/organization/setup/actions";
+import { startOrganizationCheckoutAction } from "@/app/organization/setup/actions";
 import type { OrganizationPlanCode } from "@/lib/auth";
 import type { OrganizationSetupDraft } from "@/lib/db/organizations";
 import { APP_PLANS } from "@/lib/plans";
@@ -20,6 +19,7 @@ type OrganizationSetupPlanStepProps = {
   draft: OrganizationSetupDraft;
   userEmail: string;
   isEligibleForTrial: boolean;
+  stripeReady: boolean;
 };
 
 type PlanOption = {
@@ -55,53 +55,29 @@ const PLAN_OPTIONS: PlanOption[] = [
 export function OrganizationSetupPlanStep({
   draft,
   userEmail,
-  isEligibleForTrial
+  isEligibleForTrial,
+  stripeReady
 }: OrganizationSetupPlanStepProps) {
-  const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState<OrganizationPlanCode>(draft.planCode);
-  const [pendingSave, startSaveTransition] = useTransition();
   const [pendingActivate, startActivateTransition] = useTransition();
   const activePlan = PLAN_OPTIONS.find((plan) => plan.code === selectedPlan) ?? PLAN_OPTIONS[1];
 
-  function handleSaveDraft() {
-    startSaveTransition(async () => {
-      const request = saveOrganizationSetupDraftAction({
-        organizationName: draft.organizationName,
-        planCode: selectedPlan
-      });
-
-      toast.promise(request, {
-        loading: "Atualizando plano do rascunho...",
-        success: "Rascunho atualizado.",
-        error: (error) => (error instanceof Error ? error.message : "Falha ao atualizar o rascunho")
-      });
-
-      try {
-        router.refresh();
-        await request;
-      } catch {
-        // Toast handles feedback.
-      }
-    });
-  }
-
-  function handleActivate() {
+  function handleCheckout() {
     startActivateTransition(async () => {
-      const request = activateOrganizationSetupAction({
+      const request = startOrganizationCheckoutAction({
         organizationName: draft.organizationName,
         planCode: selectedPlan
       });
 
       toast.promise(request, {
-        loading: isEligibleForTrial ? "Ativando teste gratis..." : "Simulando assinatura...",
-        success: isEligibleForTrial ? "Teste gratis ativado." : "Assinatura mockada com sucesso.",
-        error: (error) => (error instanceof Error ? error.message : "Falha ao ativar a assinatura mockada")
+        loading: "Preparando checkout...",
+        success: "Checkout iniciado com sucesso.",
+        error: (error) => (error instanceof Error ? error.message : "Falha ao iniciar o checkout")
       });
 
       try {
         const result = await request;
-        router.push((result.boardId ? `/boards/${result.boardId}` : "/dashboard") as Route);
-        router.refresh();
+        window.location.assign(result.checkoutUrl);
       } catch {
         // Toast handles feedback.
       }
@@ -206,16 +182,22 @@ export function OrganizationSetupPlanStep({
             <div className="mt-5 space-y-3 text-sm text-slate-600 dark:text-slate-300">
               <div className="flex items-start gap-3">
                 <BadgeCheck className="mt-0.5 size-4 text-emerald-500" />
-                <span>Ao concluir, a organização passa para ativa e você já pode criar sua primeira workspace.</span>
+                <span>Ao concluir o checkout no Stripe, a organizacao passa para ativa e voce libera o acesso ao sistema.</span>
               </div>
               <div className="flex items-start gap-3">
                 <CreditCard className="mt-0.5 size-4 text-sky-500" />
                 <span>
                   {isEligibleForTrial
-                    ? "Como este é o seu primeiro plano, a ativação entra com 30 dias de teste grátis."
-                    : `O pagamento segue mockado por enquanto para simular a contratacao do plano ${activePlan.label}.`}
+                    ? "Como este e o seu primeiro plano, o checkout pode iniciar com 30 dias de teste gratis no Stripe."
+                    : `Ao prosseguir, voce segue para o checkout do plano ${activePlan.label}.`}
                 </span>
               </div>
+              {!stripeReady ? (
+                <div className="flex items-start gap-3">
+                  <CreditCard className="mt-0.5 size-4 text-amber-500" />
+                  <span>Stripe sandbox ainda nao configurado neste ambiente. O rascunho continua salvo, mas o checkout fica bloqueado ate configurar as chaves e os price IDs.</span>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -229,10 +211,10 @@ export function OrganizationSetupPlanStep({
             <Button
               type="button"
               className="h-11 flex-1 rounded-lg bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-              disabled={pendingSave || pendingActivate}
-              onClick={handleActivate}
+              disabled={pendingActivate || !stripeReady}
+              onClick={handleCheckout}
             >
-              {pendingActivate ? "Processando..." : isEligibleForTrial ? "Teste agora" : `Assinar ${activePlan.label} (mock)`}
+              {pendingActivate ? "Processando..." : isEligibleForTrial ? "Iniciar teste gratis" : `Ir para o pagamento`}
               <ArrowRight className="size-4" />
             </Button>
           </div>
