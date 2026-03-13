@@ -18,14 +18,19 @@ export const Logo = ({ className, uniColor }: LogoProps) => {
   );
 };
 
-export const LogoIcon = ({ className, uniColor }: LogoProps) => {
+type LogoIconProps = LogoProps & {
+  /** Tailwind size class (e.g. "size-6", "size-8"). Default: "size-8" */
+  size?: string;
+};
+
+export const LogoIcon = ({ className, size = "size-8" }: LogoIconProps) => {
   const lightSrc = "/images/vokos_submark_black.svg";
   const darkSrc = "/images/vokos_submark_white.svg";
 
   return (
     <>
-      <Image src={lightSrc} alt="Vokos" width={220} height={48} className={cn("size-8 dark:hidden", className)} priority={false} />
-      <Image src={darkSrc} alt="Vokos" width={220} height={48} className={cn("hidden size-8 dark:block", className)} priority={false} />
+      <Image src={lightSrc} alt="Vokos" width={220} height={48} className={cn(size, "dark:hidden", className)} priority={false} />
+      <Image src={darkSrc} alt="Vokos" width={220} height={48} className={cn("hidden", size, "dark:block", className)} priority={false} />
     </>
   );
 };
