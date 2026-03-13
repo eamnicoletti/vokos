@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { TextEffect } from "@/components/ui/text-effect";
 import { AnimatedGroup } from "@/components/ui/animated-group";
 import { HeroHeader } from "@/components/landing/header";
+import DarkVeil from "@/components/landing/DarkVeil";
 
 type HeroSectionProps = {
   user: {
@@ -36,8 +37,8 @@ export default function HeroSection({ user }: HeroSectionProps) {
   return (
     <>
       <HeroHeader user={user} />
-      <main className="overflow-hidden">
-        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 hidden h-72 dark:block">
+      <main className="relative overflow-hidden">
+         {/* <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10 hidden h-72 dark:block">
           <div className="absolute left-1/2 top-0 h-72 w-72 -translate-x-1/2 rounded-full bg-cyan-400/25 blur-3xl" />
           <div className="absolute left-1/2 top-8 h-56 w-[32rem] -translate-x-1/2 rounded-full bg-indigo-500/15 blur-3xl" />
         </div>
@@ -45,9 +46,27 @@ export default function HeroSection({ user }: HeroSectionProps) {
           <div className="absolute left-0 top-0 h-[80rem] w-[35rem] -translate-y-[21.875rem] -rotate-45 rounded-full bg-[radial-gradient(68.54%_68.72%_at_55.02%_31.46%,hsla(0,0%,85%,.12)_0,hsla(0,0%,55%,.04)_50%,hsla(0,0%,45%,0)_80%)]" />
           <div className="absolute left-0 top-0 h-[80rem] w-[15rem] -rotate-45 rounded-full bg-[radial-gradient(50%_50%_at_50%_50%,hsla(0,0%,85%,.10)_0,hsla(0,0%,45%,.03)_80%,transparent_100%)] [translate:5%_-50%]" />
           <div className="absolute left-0 top-0 h-[80rem] w-[15rem] -translate-y-[21.875rem] -rotate-45 bg-[radial-gradient(50%_50%_at_50%_50%,hsla(0,0%,85%,.08)_0,hsla(0,0%,45%,.02)_80%,transparent_100%)]" />
+        </div> */}
+
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[30rem] overflow-hidden [mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,black_78%,transparent_100%)] md:h-[36rem] lg:h-[60rem]"
+        >
+          <DarkVeil
+            hueShift={30}
+            noiseIntensity={0}
+            scanlineIntensity={0}
+            speed={0.5}
+            scanlineFrequency={0}
+            warpAmount={0}
+          />
+          {/* <div
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 h-28 opacity-40 [background-image:repeating-linear-gradient(0deg,hsl(var(--foreground)/0.05)_0px,transparent_2px),repeating-linear-gradient(90deg,hsl(var(--foreground)/0.04)_0px,transparent_3px)] [mask-image:linear-gradient(to_bottom,transparent_0%,black_30%,transparent_100%)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,black_30%,transparent_100%)]"
+          /> */}
         </div>
 
-        <section className="bg-muted/50 dark:bg-background">
+        <section className="">
           <div className="relative pt-24 md:pt-36">
             <div aria-hidden className="absolute inset-0 -z-10 size-full [background:radial-gradient(125%_125%_at_50%_100%,transparent_0%,var(--color-background)_75%)]" />
 
@@ -56,7 +75,7 @@ export default function HeroSection({ user }: HeroSectionProps) {
                 <AnimatedGroup variants={transitionVariants}>
                   <a
                     href="#link"
-                    className="hover:bg-background bg-muted group mx-auto flex w-fit items-center gap-4 rounded-full border p-1 pl-4 shadow-md shadow-zinc-950/5 transition-colors duration-300"
+                    className="hover:bg-background/70 bg-muted/70 group mx-auto flex w-fit items-center gap-4 rounded-full border p-1 pl-4 shadow-md shadow-zinc-950/5 transition-colors duration-300"
                   >
                     <span className="text-foreground text-sm">O workspace inteligente para advogados</span>
                     <span className="block h-4 w-0.5 border-l bg-white dark:bg-zinc-700" />

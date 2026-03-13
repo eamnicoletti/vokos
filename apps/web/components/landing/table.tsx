@@ -76,7 +76,7 @@ export const Table = ({ className }: { className?: string }) => {
                             <td>{task.id}</td>
                             <td>{task.date}</td>
                             <td>
-                                <span className={cn('rounded-full px-2 py-1 text-xs', task.statusVariant == 'success' && 'bg-lime-500/15 text-lime-800', task.statusVariant == 'danger' && 'bg-red-500/15 text-red-800', task.statusVariant == 'warning' && 'bg-yellow-500/15 text-yellow-800')}>{task.status}</span>
+                                <span className={cn('rounded-full px-2 py-1 text-xs', task.statusVariant == 'success' && 'bg-lime-500/15 text-lime-800 dark:bg-lime-500/20 dark:text-lime-400', task.statusVariant == 'danger' && 'bg-red-500/15 text-red-800 dark:bg-red-500/20 dark:text-red-400', task.statusVariant == 'warning' && 'bg-yellow-500/15 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-400')}>{task.status}</span>
                             </td>
                             <td>
                                 <div className="flex items-center gap-2">

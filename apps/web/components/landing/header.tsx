@@ -13,7 +13,6 @@ const menuItems = [
   { name: "Funcionalidades", href: "#funcionalidades" },
   { name: "Solução", href: "#solucao" },
   { name: "Planos", href: "#planos" },
-  { name: "Depoimentos", href: "#depoimentos" },
   { name: "FAQ", href: "#faq" },
   { name: "Sobre", href: "#sobre" }
 ];
@@ -39,7 +38,7 @@ export const HeroHeader = ({ user }: HeroHeaderProps) => {
 
   return (
     <header>
-      <nav data-state={menuState && "active"} className="fixed z-20 w-full px-2">
+      <nav className="fixed z-20 w-full px-2">
         <div
           className={cn(
             "mx-auto mt-2 max-w-6xl px-6 transition-all duration-300 lg:px-12",
@@ -54,11 +53,18 @@ export const HeroHeader = ({ user }: HeroHeaderProps) => {
 
               <button
                 onClick={() => setMenuState(!menuState)}
+                data-state={menuState ? "active" : "inactive"}
                 aria-label={menuState ? "Close Menu" : "Open Menu"}
                 className="relative z-20 -m-2.5 -mr-4 block cursor-pointer p-2.5 lg:hidden"
               >
-                <Menu className="in-data-[state=active]:rotate-180 in-data-[state=active]:scale-0 in-data-[state=active]:opacity-0 m-auto size-6 duration-200" />
-                <X className="in-data-[state=active]:rotate-0 in-data-[state=active]:scale-100 in-data-[state=active]:opacity-100 absolute inset-0 m-auto size-6 -rotate-180 scale-0 opacity-0 duration-200" />
+                <Menu
+                  data-state={menuState ? "active" : "inactive"}
+                  className="data-[state=active]:rotate-180 data-[state=active]:scale-0 data-[state=active]:opacity-0 m-auto size-6 duration-200"
+                />
+                <X
+                  data-state={menuState ? "active" : "inactive"}
+                  className="data-[state=active]:rotate-0 data-[state=active]:scale-100 data-[state=active]:opacity-100 absolute inset-0 m-auto size-6 -rotate-180 scale-0 opacity-0 duration-200"
+                />
               </button>
             </div>
 
@@ -66,7 +72,7 @@ export const HeroHeader = ({ user }: HeroHeaderProps) => {
               <ul className="flex gap-8 text-sm">
                 {menuItems.map((item) => (
                   <li key={item.name}>
-                    <a href={item.href} className="text-muted-foreground hover:text-accent-foreground block duration-150">
+                    <a href={item.href} className="text-accent-foreground/80 dark:text-muted-foreground hover:text-accent-foreground block duration-150 text-accent-foreground/80">
                       <span>{item.name}</span>
                     </a>
                   </li>
@@ -74,9 +80,25 @@ export const HeroHeader = ({ user }: HeroHeaderProps) => {
               </ul>
             </div>
 
-            <div className="bg-background in-data-[state=active]:block lg:in-data-[state=active]:flex mb-6 hidden w-full flex-wrap items-center justify-end space-y-8 rounded-3xl border p-6 shadow-2xl shadow-zinc-300/20 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none">
+            <div
+              className={cn(
+                "bg-background mb-6 hidden w-full flex-wrap items-center justify-end space-y-8 rounded-3xl border p-6 shadow-2xl shadow-zinc-300/20 md:flex-nowrap lg:m-0 lg:flex lg:w-fit lg:gap-6 lg:space-y-0 lg:border-transparent lg:bg-transparent lg:p-0 lg:shadow-none",
+                menuState && "block"
+              )}
+            >
               <div className="lg:hidden">
                 <ul className="space-y-6 text-base">
+                  <li>
+                    {user ? (
+                      <Link href="/dashboard" className="text-muted-foreground hover:text-accent-foreground block duration-150">
+                        <span>Dashboard</span>
+                      </Link>
+                    ) : (
+                      <Link href="/login" className="text-muted-foreground hover:text-accent-foreground block duration-150">
+                        <span>Login</span>
+                      </Link>
+                    )}
+                  </li>
                   {menuItems.map((item) => (
                     <li key={item.name}>
                       <a href={item.href} className="text-muted-foreground hover:text-accent-foreground block duration-150">
@@ -88,9 +110,11 @@ export const HeroHeader = ({ user }: HeroHeaderProps) => {
               </div>
 
               <div className="flex w-full flex-col space-y-3 sm:flex-row sm:gap-3 sm:space-y-0 md:w-fit">
-                <ModeToggle />
+                <div className={cn("hidden lg:block", isScrolled && "lg:hidden")}>
+                  <ModeToggle />
+                </div>
                 {user ? (
-                  <Button asChild variant="ghost" size="icon" className="rounded-full">
+                  <Button asChild variant="ghost" size="icon" className="hidden rounded-full lg:inline-flex">
                     <Link href="/dashboard" aria-label="Abrir dashboard">
                       <Avatar className="h-9 w-9">
                         <AvatarFallback>VK</AvatarFallback>
@@ -98,7 +122,7 @@ export const HeroHeader = ({ user }: HeroHeaderProps) => {
                     </Link>
                   </Button>
                 ) : (
-                  <Button asChild variant="outline" size="sm" className={cn(isScrolled && "lg:hidden")}>
+                  <Button asChild variant="outline" size="sm" className="hidden pt-4 pb-[1.1rem] lg:inline-flex">
                     <Link href="/login">
                       <span>Login</span>
                     </Link>

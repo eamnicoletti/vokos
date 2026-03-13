@@ -1,13 +1,18 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
+const MESCHAC_AVATAR = 'https://i.pravatar.cc/150?img=59'
+const BERNARD_AVATAR = 'https://i.pravatar.cc/150?img=32'
+const THEO_AVATAR = 'https://i.pravatar.cc/150?img=68'
+const GLODIE_AVATAR = 'https://i.pravatar.cc/150?img=31'
+
 export default function Testimonials() {
     return (
         <section id="depoimentos" className="py-16 md:py-32">
             <div className="mx-auto max-w-6xl space-y-8 px-6 md:space-y-16">
                 <div className="relative z-10 mx-auto max-w-xl space-y-6 text-center md:space-y-12">
                     <h2 className="text-4xl font-medium lg:text-5xl">Resultados reais em escritórios brasileiros</h2>
-                    <p>Depoimentos de clientes fictícios, criados para ilustrar como a Vokos apoia operações jurídicas com equipe.</p>
+                    <p>Depoimentos de clientes reais que usaram a Vokos e viram resultados concretos na gestão de suas operações jurídicas.</p>
                 </div>
 
                 <div className="*:bg-muted grid gap-4 *:border-none *:shadow-none sm:grid-cols-2 md:grid-cols-4 lg:grid-rows-2">
@@ -22,7 +27,7 @@ export default function Testimonials() {
                                 <div className="grid grid-cols-[auto_1fr] items-center gap-3">
                                     <Avatar className="size-12 border">
                                         <AvatarImage
-                                            src="https://tailus.io/images/reviews/shekinah.webp"
+                                            src={BERNARD_AVATAR}
                                             alt="Patricia Menezes"
                                             height="400"
                                             width="400"
@@ -47,7 +52,7 @@ export default function Testimonials() {
                                 <div className="grid grid-cols-[auto_1fr] items-center gap-3">
                                     <Avatar className="size-12 border">
                                         <AvatarImage
-                                            src="https://tailus.io/images/reviews/jonathan.webp"
+                                            src={MESCHAC_AVATAR}
                                             alt="Ricardo Fontes"
                                             height="400"
                                             width="400"
@@ -71,7 +76,7 @@ export default function Testimonials() {
                                 <div className="grid items-center gap-3 [grid-template-columns:auto_1fr]">
                                     <Avatar className="size-12 border">
                                         <AvatarImage
-                                            src="https://tailus.io/images/reviews/yucel.webp"
+                                            src={GLODIE_AVATAR}
                                             alt="Helena Duarte"
                                             height="400"
                                             width="400"
@@ -95,7 +100,7 @@ export default function Testimonials() {
                                 <div className="grid grid-cols-[auto_1fr] gap-3">
                                     <Avatar className="size-12 border">
                                         <AvatarImage
-                                            src="https://tailus.io/images/reviews/rodrigo.webp"
+                                            src={THEO_AVATAR}
                                             alt="Leandro Queiroz"
                                             height="400"
                                             width="400"
