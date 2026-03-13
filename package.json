@@ -9,5 +9,8 @@
     "build:web": "pnpm --filter @vokos/web build",
     "lint:web": "pnpm --filter @vokos/web lint",
     "typecheck:web": "pnpm --filter @vokos/web typecheck"
+  },
+  "dependencies": {
+    "motion": "^12.35.0"
   }
 }
