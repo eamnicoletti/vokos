@@ -78,6 +78,7 @@ Invitation flow security requirements:
 - invitation acceptance validates token + email consistency
 - membership writes are idempotent
 - invite lifecycle events are audited (created, accepted, revoked, expired)
+- transactional invitation email delivery is currently handled by Resend
 
 Edge cases:
 - existing user email -> direct membership activation
@@ -142,6 +143,7 @@ Rules:
 - secrets stay in managed env/secret stores only
 - no secrets in repo, docs, logs, PRs, or commit messages
 - frontend must never receive integration credentials
+- Resend API keys stay server-side only and must never be exposed to browser clients
 
 Logging controls:
 - redact sensitive payload fragments

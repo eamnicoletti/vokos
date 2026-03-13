@@ -25,6 +25,7 @@ Main components:
 - `services/ai_server` (FastAPI): parsing + structured extraction from legal communications (Google Gemini)
 - Supabase (Auth + Postgres + RLS): identity, membership, and transactional data
 - Stripe: financial source of truth for paid organizations
+- Resend: transactional email delivery for organization invitations
 
 ```mermaid
 flowchart LR
@@ -122,8 +123,9 @@ This requires a more advanced RBAC layer than MVP owner/member controls.
 Invitation flow:
 1. owner invites by email
 2. system creates pending invitation tied to organization
-3. if email already has account: activate membership immediately
-4. if email is new: user signs up then invitation is resolved and membership activated
+3. system sends invitation email through Resend with secure acceptance link
+4. user signs up or logs in through the invitation flow
+5. invitation is resolved and membership is activated idempotently
 
 Security notes:
 - invitation acceptance must validate token and intended email
