@@ -5,6 +5,7 @@ export type AppPlan = {
   label: string;
   originalPrice: string;
   priceLabel: string;
+  monthlyPriceInCents: number;
   description: string;
   features: string[];
   popular?: boolean;
@@ -19,6 +20,7 @@ export const APP_PLANS: AppPlan[] = [
     label: "Essencial",
     originalPrice: "R$ 99,00",
     priceLabel: "R$ 59 / mês",
+    monthlyPriceInCents: 5900,
     description: "Para advogados solos ou pequenos escritórios",
     features: [
       "1 usuário",
@@ -37,6 +39,7 @@ export const APP_PLANS: AppPlan[] = [
     label: "Equipe",
     originalPrice: "R$ 249,00",
     priceLabel: "R$ 149 / mês",
+    monthlyPriceInCents: 14900,
     description: "Ideal para escritórios com colaboradores",
     features: [
       "Tudo do plano Essencial",
@@ -57,6 +60,7 @@ export const APP_PLANS: AppPlan[] = [
     label: "Enterprise",
     originalPrice: "R$ 649,00",
     priceLabel: "R$ 449 / mês",
+    monthlyPriceInCents: 44900,
     description: "Para escritórios com mais de 300 processos",
     features: [
       "Tudo do plano Equipe",

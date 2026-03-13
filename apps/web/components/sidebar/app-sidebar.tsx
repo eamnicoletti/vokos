@@ -4,7 +4,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ChevronDown, FolderKanban, Plus, Users } from "lucide-react";
+import { ChartColumn, ChevronDown, CreditCard, FileText, FolderKanban, HelpCircle, Plus, Search, Settings, Users } from "lucide-react";
 import { toast } from "sonner";
 import { createWorkspaceAction, signOutAction } from "@/app/(app)/actions";
 import type { OrganizationContext } from "@/lib/auth";
@@ -33,6 +33,14 @@ export function AppSidebar({ memberships, userEmail, currentOrganization, organi
   const [pendingCreate, startCreateTransition] = useTransition();
   const [pendingSignout, startSignoutTransition] = useTransition();
   const visibleMemberships = memberships.filter((membership) => membership.organization_id === currentOrganization.organizationId);
+  const currentOrganizationAccessRole =
+    currentOrganization.role === "owner"
+      ? "admin"
+      : visibleMemberships.find((membership) => membership.role === "admin" || membership.role === "manager")?.role ??
+        visibleMemberships[0]?.role ??
+        "member";
+  const canSeeAdminGroup = currentOrganizationAccessRole === "admin" || currentOrganizationAccessRole === "manager";
+  const canSeeSubscription = currentOrganization.role === "owner";
 
   function handleCreateWorkspace() {
     if (newWorkspaceName.trim().length < 3) {
@@ -180,15 +188,78 @@ export function AppSidebar({ memberships, userEmail, currentOrganization, organi
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === "/organization/analytics"}>
+                  <Link href={"/organization/analytics" as Route}>
+                    <ChartColumn />
+                    <span>Analytics</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={pathname === "/organization/members"}>
                   <Link href={"/organization/members" as Route}>
                     <Users />
                     <span>Membros</span>
                   </Link>
                 </SidebarMenuButton>
-              </SidebarMenuItem>
+              </SidebarMenuItem>              
             </SidebarMenu>
           </SidebarGroupContent>
+        </SidebarGroup>
+
+        {canSeeAdminGroup ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Admin</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {canSeeSubscription ? (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={pathname === "/organization/billing"}>
+                      <Link href={"/organization/billing" as Route}>
+                        <CreditCard />
+                        <span>Assinatura</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ) : null}
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/organization/configurations"}>
+                    <Link href={"/organization/configurations" as Route}>
+                      <Settings />
+                      <span>Configurações</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={pathname === "/organization/reports"}>
+                    <Link href={"/organization/reports" as Route}>
+                      <FileText />
+                      <span>Relatórios</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>          
+        ) : null}
+
+        <SidebarGroup className="mt-auto">
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === "/help"}>
+              <Link href={"/help" as Route}>
+                <HelpCircle />
+                <span>Ajuda</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild isActive={pathname === "/organization/procurar"}>
+              <Link href={"/organization/procurar" as Route}>
+                <Search />
+                <span>Procurar</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarGroup>
       </SidebarContent>
 

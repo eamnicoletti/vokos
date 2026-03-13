@@ -21,6 +21,15 @@ export type OrganizationCheckoutSession = {
   checkoutUrl: string;
 };
 
+export type BillingPortalSession = {
+  url: string;
+};
+
+export type StripeCustomerInvoiceBatch = {
+  customerId: string;
+  invoice: Stripe.Invoice;
+};
+
 type SubscriptionStatus = "incomplete" | "trialing" | "active" | "past_due" | "canceled" | "unpaid";
 type OrganizationStatus = "active" | "inactive" | "past_due" | "canceled";
 
@@ -32,6 +41,45 @@ function getStripeClient() {
   }
 
   return stripeClient;
+}
+
+export async function createOrganizationBillingPortalSession(params: {
+  stripeCustomerId: string;
+  returnPath: string;
+}): Promise<BillingPortalSession> {
+  const stripe = getStripeClient();
+  const appUrl = getAppBaseUrl();
+  const session = await stripe.billingPortal.sessions.create({
+    customer: params.stripeCustomerId,
+    return_url: `${appUrl}${params.returnPath}`,
+    locale: "auto"
+  });
+
+  return {
+    url: session.url
+  };
+}
+
+export async function listStripeInvoicesByCustomers(
+  customers: Array<{ stripeCustomerId: string }>,
+  limitPerCustomer = 5
+): Promise<StripeCustomerInvoiceBatch[]> {
+  const stripe = getStripeClient();
+  const invoiceBatches = await Promise.all(
+    customers.map(async (customer) => {
+      const invoices = await stripe.invoices.list({
+        customer: customer.stripeCustomerId,
+        limit: limitPerCustomer
+      });
+
+      return invoices.data.map((invoice) => ({
+        customerId: customer.stripeCustomerId,
+        invoice
+      }));
+    })
+  );
+
+  return invoiceBatches.flat();
 }
 
 export function getStripePriceId(planCode: OrganizationPlanCode): string | null {

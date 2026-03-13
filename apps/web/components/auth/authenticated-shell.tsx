@@ -39,6 +39,31 @@ export function AuthenticatedShell({
       };
     }
 
+    if (pathname === "/organization/billing") {
+      return {
+        rootLabel: "Organização",
+        pageLabel: "Assinatura",
+        rootHref: "/organization/billing"
+      };
+    }
+
+    if (pathname === "/organization/members") {
+      return {
+        rootLabel: "Organização",
+        pageLabel: "Membros",
+        rootHref: "/organization/members"
+      };
+    }
+
+    if (pathname === "/conta/cobrancas") {
+      return {
+        rootLabel: "Minha conta",
+        pageLabel: "Cobranças",
+        rootHref: "/conta/cobrancas"
+      };
+    }
+
+
     const boardMatch = pathname.match(/^\/boards\/([0-9a-f-]+)$/i);
     if (boardMatch) {
       const boardId = boardMatch[1];
@@ -48,7 +73,7 @@ export function AuthenticatedShell({
         pageLabel: "Board",
         rootHref: "/workspace"
       };
-    }
+    } 
 
     return {
       rootLabel: "Vokos",
@@ -66,7 +91,7 @@ export function AuthenticatedShell({
         organizations={organizations}
       />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-secondary">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
