@@ -46,14 +46,38 @@ function getStripeClient() {
 export async function createOrganizationBillingPortalSession(params: {
   stripeCustomerId: string;
   returnPath: string;
+  flow?: {
+    type: "subscription_update";
+    stripeSubscriptionId: string;
+  };
 }): Promise<BillingPortalSession> {
   const stripe = getStripeClient();
   const appUrl = getAppBaseUrl();
-  const session = await stripe.billingPortal.sessions.create({
+  const basePayload: Stripe.BillingPortal.SessionCreateParams = {
     customer: params.stripeCustomerId,
     return_url: `${appUrl}${params.returnPath}`,
     locale: "auto"
-  });
+  };
+
+  let session: Stripe.BillingPortal.Session;
+
+  if (params.flow?.type === "subscription_update") {
+    try {
+      session = await stripe.billingPortal.sessions.create({
+        ...basePayload,
+        flow_data: {
+          type: "subscription_update",
+          subscription_update: {
+            subscription: params.flow.stripeSubscriptionId
+          }
+        }
+      });
+    } catch {
+      session = await stripe.billingPortal.sessions.create(basePayload);
+    }
+  } else {
+    session = await stripe.billingPortal.sessions.create(basePayload);
+  }
 
   return {
     url: session.url

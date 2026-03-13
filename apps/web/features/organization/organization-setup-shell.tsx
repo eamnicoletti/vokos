@@ -35,8 +35,8 @@ export function OrganizationSetupShell({
               <p className="max-w-2xl text-sm text-slate-600 dark:text-slate-300">{description}</p>
             </div>
           </div>
-          <div className="rounded-lg border border-slate-200/80 bg-slate-950 px-4 py-3 text-sm text-white shadow-lg dark:border-white/10 dark:bg-white/10">
-            <div className="text-xs uppercase tracking-[0.24em] text-white/60">conta conectada</div>
+          <div className="rounded-lg border border-muted-foreground/10 px-4 py-3 text-sm shadow-lg ">
+            <div className="text-xs uppercase tracking-[0.24em] text-muted-foreground">conta conectada</div>
             <div className="mt-1 font-medium">{userEmail}</div>
           </div>
         </div>

@@ -9,10 +9,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import type { OrganizationWorkspaceStatus } from "@/lib/db/organizations";
+import { WorkspaceUpgradeDialog } from "./workspace-upgrade-dialog";
 
-export function WorkspaceBootstrap() {
+type WorkspaceBootstrapProps = {
+  organizationId: string;
+  workspaceStatus: OrganizationWorkspaceStatus;
+};
+
+export function WorkspaceBootstrap({ organizationId, workspaceStatus }: WorkspaceBootstrapProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [pending, startTransition] = useTransition();
 
@@ -35,8 +43,11 @@ export function WorkspaceBootstrap() {
         router.refresh();
         setName("");
         setOpen(false);
-      } catch {
-        // Error feedback handled by toast.
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("Não é possível criar outro workspace")) {
+          setOpen(false);
+          setUpgradeDialogOpen(true);
+        }
       }
     });
   }
@@ -56,7 +67,16 @@ export function WorkspaceBootstrap() {
       <CardContent className="relative">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="lg" className="h-11 px-6 text-base">
+            <Button
+              size="lg"
+              className="h-11 px-6 text-base"
+              onClick={(event) => {
+                if (!workspaceStatus.canCreateMoreWorkspaces) {
+                  event.preventDefault();
+                  setUpgradeDialogOpen(true);
+                }
+              }}
+            >
               + Criar Workspace
             </Button>
           </DialogTrigger>
@@ -89,6 +109,12 @@ export function WorkspaceBootstrap() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <WorkspaceUpgradeDialog
+          open={upgradeDialogOpen}
+          onOpenChange={setUpgradeDialogOpen}
+          organizationId={organizationId}
+          status={workspaceStatus}
+        />
       </CardContent>
     </Card>
   );

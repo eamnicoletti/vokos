@@ -8,26 +8,31 @@ import { ChartColumn, ChevronDown, CreditCard, FileText, FolderKanban, HelpCircl
 import { toast } from "sonner";
 import { createWorkspaceAction, signOutAction } from "@/app/(app)/actions";
 import type { OrganizationContext } from "@/lib/auth";
+import type { OrganizationWorkspaceStatus } from "@/lib/db/organizations";
 import type { WorkspaceMembership } from "@/lib/db/workspaces";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupAction, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, SidebarRail } from "@/components/ui/sidebar";
+import { WorkspaceUpgradeDialog } from "@/features/workspaces/workspace-upgrade-dialog";
 import { OrganizationSwitcher } from "./organization-switcher";
 import { NavUser } from "./nav-user";
+import { Badge } from "../ui/badge";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   memberships: WorkspaceMembership[];
   userEmail: string;
   currentOrganization: OrganizationContext;
   organizations: OrganizationContext[];
+  workspaceStatus: OrganizationWorkspaceStatus;
 };
 
-export function AppSidebar({ memberships, userEmail, currentOrganization, organizations, ...props }: AppSidebarProps) {
+export function AppSidebar({ memberships, userEmail, currentOrganization, organizations, workspaceStatus, ...props }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [workspacesOpen, setWorkspacesOpen] = useState(true);
   const [pendingCreate, startCreateTransition] = useTransition();
@@ -61,8 +66,11 @@ export function AppSidebar({ memberships, userEmail, currentOrganization, organi
         setNewWorkspaceName("");
         router.push(`/boards/${result.boardId}`);
         router.refresh();
-      } catch {
-        // Error feedback is handled by toast.promise.
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("Não é possível criar outro workspace")) {
+          setIsCreateOpen(false);
+          setIsUpgradeOpen(true);
+        }
       }
     });
   }
@@ -99,7 +107,15 @@ export function AppSidebar({ memberships, userEmail, currentOrganization, organi
             <Tooltip>
               <TooltipTrigger asChild>
                 <DialogTrigger asChild>
-                  <SidebarGroupAction aria-label="Criar workspace">
+                  <SidebarGroupAction
+                    aria-label="Criar workspace"
+                    onClick={(event) => {
+                      if (!workspaceStatus.canCreateMoreWorkspaces) {
+                        event.preventDefault();
+                        setIsUpgradeOpen(true);
+                      }
+                    }}
+                  >
                     <Plus />
                   </SidebarGroupAction>
                 </DialogTrigger>
@@ -136,6 +152,12 @@ export function AppSidebar({ memberships, userEmail, currentOrganization, organi
               </form>
             </DialogContent>
           </Dialog>
+          <WorkspaceUpgradeDialog
+            open={isUpgradeOpen}
+            onOpenChange={setIsUpgradeOpen}
+            organizationId={currentOrganization.organizationId}
+            status={workspaceStatus}
+          />
 
           <SidebarGroupContent>
             <SidebarMenu>
@@ -191,7 +213,9 @@ export function AppSidebar({ memberships, userEmail, currentOrganization, organi
                 <SidebarMenuButton asChild isActive={pathname === "/organization/analytics"}>
                   <Link href={"/organization/analytics" as Route}>
                     <ChartColumn />
-                    <span>Analytics</span>
+                    <span>Analytics 
+                      {/* <Badge variant="secondary" className="ml-2 rounded-full text-xs text-muted-foreground">Em breve</Badge> */}
+                    </span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

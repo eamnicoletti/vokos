@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, Copy, MailPlus, RefreshCw, ShieldCheck, Sparkles, Trash2, UserRoundPlus, Users } from "lucide-react";
+import { Copy, MailPlus, RefreshCw, ShieldCheck, Sparkles, Trash2, UserRoundPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { OrganizationContext } from "@/lib/auth";
 import type { OrganizationInvitationRecord, OrganizationMemberRecord, OrganizationSeatStatus } from "@/lib/db/organizations";
+import { OpenBillingPortalButton } from "@/features/billing/open-billing-portal-button";
 import {
   inviteOrganizationMemberAction,
   replaceOrganizationInvitationEmailAction,
@@ -13,17 +14,29 @@ import {
   revokeOrganizationInvitationAction
 } from "@/app/(app)/organization/members/actions";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 type OrganizationMembersPanelProps = {
   organization: OrganizationContext;
   members: OrganizationMemberRecord[];
   invitations: OrganizationInvitationRecord[];
-  seatStatus: OrganizationSeatStatus;
+  seatStatus: OrganizationSeatStatus | null;
+  canManageInvitations: boolean;
 };
 
 function formatDateTime(value: string | null) {
@@ -55,19 +68,34 @@ export function OrganizationMembersPanel({
   organization,
   members,
   invitations,
-  seatStatus
+  seatStatus,
+  canManageInvitations
 }: OrganizationMembersPanelProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [now, setNow] = useState(() => Date.now());
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [editingInvitation, setEditingInvitation] = useState<OrganizationInvitationRecord | null>(null);
+  const [invitationToRevoke, setInvitationToRevoke] = useState<OrganizationInvitationRecord | null>(null);
   const [replacementEmail, setReplacementEmail] = useState("");
 
   const activeMembers = members.filter((member) => member.isActive);
   const pendingInvitations = invitations.filter((invitation) => invitation.effectiveStatus === "pending");
+
+  useEffect(() => {
+    if (!canManageInvitations) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [canManageInvitations]);
 
   function rememberInviteLink(invitationId: string, inviteLink: string) {
     setInviteLinks((current) => ({ ...current, [invitationId]: inviteLink }));
@@ -90,6 +118,11 @@ export function OrganizationMembersPanel({
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   }
 
+  function getResendCooldownRemainingSeconds(lastSentAt: string) {
+    const remainingMs = Math.max(0, 60_000 - (now - new Date(lastSentAt).getTime()));
+    return Math.ceil(remainingMs / 1000);
+  }
+
   function handleInviteSubmit() {
     if (!organization || !inviteEmail.trim()) {
       return;
@@ -100,7 +133,7 @@ export function OrganizationMembersPanel({
       return;
     }
 
-    if (!seatStatus.canInviteMoreUsers && seatStatus.maxUsers !== null) {
+    if (seatStatus && !seatStatus.canInviteMoreUsers && seatStatus.maxUsers !== null) {
       setInviteDialogOpen(false);
       setUpgradeDialogOpen(true);
       return;
@@ -231,21 +264,23 @@ export function OrganizationMembersPanel({
                 <CardDescription>{organization.organizationName}</CardDescription>
               </div>
             </div>
-            <Button
-              type="button"
-              onClick={() => {
-                if (!seatStatus.canInviteMoreUsers && seatStatus.maxUsers !== null) {
-                  setUpgradeDialogOpen(true);
-                  return;
-                }
-                setInviteDialogOpen(true);
-              }}
-            >
-              <UserRoundPlus className="mr-2 size-4" />
-              Convidar membro
-            </Button>
+            {canManageInvitations ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  if (seatStatus && !seatStatus.canInviteMoreUsers && seatStatus.maxUsers !== null) {
+                    setUpgradeDialogOpen(true);
+                    return;
+                  }
+                  setInviteDialogOpen(true);
+                }}
+              >
+                <UserRoundPlus className="mr-2 size-4" />
+                Convidar membro
+              </Button>
+            ) : null}
           </div>
-          {!seatStatus.canInviteMoreUsers && seatStatus.maxUsers !== null ? (
+          {canManageInvitations && seatStatus && !seatStatus.canInviteMoreUsers && seatStatus.maxUsers !== null ? (
             <div className="rounded-2xl border border-amber-300/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200">
               A organização está no limite do plano {seatStatus.planLabel}: {seatStatus.activeUsersCount}/{seatStatus.maxUsers} membro(s).
             </div>
@@ -253,122 +288,155 @@ export function OrganizationMembersPanel({
         </CardHeader>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card className="border-muted">
-          <CardHeader>
-            <CardTitle>Membros ativos</CardTitle>
-            <CardDescription>{activeMembers.length} pessoa(s) com acesso atual.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {activeMembers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum membro ativo além do administrador.</p>
-            ) : (
-              activeMembers.map((member) => (
-                <div key={member.userId} className="flex items-center justify-between gap-3 rounded-xl border p-3">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{member.fullName || member.email}</p>
-                    <p className="truncate text-sm text-muted-foreground">{member.email}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={cn("rounded-full", member.role === "owner" ? "bg-blue-500/10 text-blue-700" : "")}>
-                      {member.role === "owner" ? (
-                        <>
-                          <ShieldCheck className="mr-1 size-3.5" />
-                          Administrador
-                        </>
-                      ) : (
-                        "Membro"
-                      )}
-                    </Badge>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="members">
+        {canManageInvitations ? (
+          <div className="mb-4">
+            <TabsList className="inline-flex h-auto w-full justify-start rounded-2xl border border-border bg-muted/40 p-1 sm:w-auto">
+              <TabsTrigger value="members" className="min-w-32 rounded-xl px-4 py-2 data-[state=active]:shadow-sm">
+                Membros
+                <span className="ml-2 text-xs text-muted-foreground">{activeMembers.length}</span>
+              </TabsTrigger>
+              <TabsTrigger value="invitations" className="min-w-32 rounded-xl px-4 py-2 data-[state=active]:shadow-sm">
+                Convites
+                <span className="ml-2 text-xs text-muted-foreground">{pendingInvitations.length}</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        ) : null}
 
-        <Card className="border-muted">
-          <CardHeader>
-            <CardTitle>Convites pendentes</CardTitle>
-            <CardDescription>{pendingInvitations.length} convite(s) aguardando aceite.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {invitations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum convite criado para esta organização.</p>
-            ) : (
-              invitations.map((invitation) => (
-                <div key={invitation.id} className="space-y-3 rounded-xl border p-3">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+        <TabsContent value="members" className="mt-0">
+          <Card className="border-muted">
+            <CardHeader>
+              <CardTitle>Membros ativos</CardTitle>
+              <CardDescription>{activeMembers.length} pessoa(s) com acesso atual.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {activeMembers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum membro ativo além do administrador.</p>
+              ) : (
+                activeMembers.map((member) => (
+                  <div key={member.userId} className="flex items-center justify-between gap-3 rounded-xl border p-3">
                     <div className="min-w-0">
-                      <p className="truncate font-medium">{invitation.email}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Convidado por {invitation.invitedByName || invitation.invitedByEmail}
-                      </p>
+                      <p className="truncate font-medium">{member.fullName || member.email}</p>
+                      <p className="truncate text-sm text-muted-foreground">{member.email}</p>
                     </div>
-                    <Badge variant="outline" className={cn("rounded-full", statusTone(invitation.effectiveStatus))}>
-                      {statusLabel(invitation.effectiveStatus)}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={cn("rounded-full", member.role === "owner" ? "bg-blue-500/10 text-blue-700" : "")}>
+                        {member.role === "owner" ? (
+                          <>
+                            <ShieldCheck className="mr-1 size-3.5" />
+                            Administrador
+                          </>
+                        ) : (
+                          "Membro"
+                        )}
+                      </Badge>
+                    </div>
                   </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        {canManageInvitations ? (
+          <TabsContent value="invitations" className="mt-0">
+            <Card className="border-muted">
+              <CardHeader>
+                <CardTitle>Convites pendentes</CardTitle>
+                <CardDescription>{pendingInvitations.length} convite(s) aguardando aceite.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {invitations.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhum convite criado para esta organização.</p>
+                ) : (
+                  invitations.map((invitation) => (
+                    (() => {
+                      const resendCooldownRemainingSeconds = getResendCooldownRemainingSeconds(invitation.lastSentAt);
+                      const isResendBlockedByCooldown =
+                        invitation.effectiveStatus === "pending" && resendCooldownRemainingSeconds > 0;
 
-                  <div className="grid gap-1 text-xs text-muted-foreground">
-                    <p>Criado em {formatDateTime(invitation.createdAt)}</p>
-                    <p>Expira em {formatDateTime(invitation.expiresAt)}</p>
-                    <p>Último envio em {formatDateTime(invitation.lastSentAt)}</p>
-                  </div>
+                      return (
+                        <div key={invitation.id} className="space-y-3 rounded-xl border p-3">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{invitation.email}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Convidado por {invitation.invitedByName || invitation.invitedByEmail}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className={cn("rounded-full", statusTone(invitation.effectiveStatus))}>
+                              {statusLabel(invitation.effectiveStatus)}
+                            </Badge>
+                          </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={pending || invitation.effectiveStatus === "accepted" || invitation.effectiveStatus === "revoked"}
-                      onClick={() => handleResend(invitation.id)}
-                    >
-                      <RefreshCw className="mr-2 size-3.5" />
-                      Reenviar
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={pending}
-                      onClick={() => copyInviteLink(invitation.id)}
-                    >
-                      <Copy className="mr-2 size-3.5" />
-                      Copiar link
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={pending || invitation.effectiveStatus === "accepted"}
-                      onClick={() => {
-                        setEditingInvitation(invitation);
-                        setReplacementEmail(invitation.email);
-                      }}
-                    >
-                      <MailPlus className="mr-2 size-3.5" />
-                      Corrigir e-mail
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={pending || invitation.effectiveStatus === "accepted" || invitation.effectiveStatus === "revoked"}
-                      onClick={() => handleRevoke(invitation.id)}
-                    >
-                      <Trash2 className="mr-2 size-3.5" />
-                      Revogar
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                          <div className="grid gap-1 text-xs text-muted-foreground">
+                            <p>Criado em {formatDateTime(invitation.createdAt)}</p>
+                            <p>Expira em {formatDateTime(invitation.expiresAt)}</p>
+                            <p>Último envio em {formatDateTime(invitation.lastSentAt)}</p>
+                          </div>
 
-      <Dialog open={editingInvitation !== null} onOpenChange={(open) => !open && setEditingInvitation(null)}>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                pending ||
+                                invitation.effectiveStatus === "accepted" ||
+                                invitation.effectiveStatus === "revoked" ||
+                                isResendBlockedByCooldown
+                              }
+                              onClick={() => handleResend(invitation.id)}
+                            >
+                              <RefreshCw className="mr-2 size-3.5" />
+                              {isResendBlockedByCooldown ? `Reenviar em ${resendCooldownRemainingSeconds}s` : "Reenviar"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={pending}
+                              onClick={() => copyInviteLink(invitation.id)}
+                            >
+                              <Copy className="mr-2 size-3.5" />
+                              Copiar link
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={pending || invitation.effectiveStatus === "accepted"}
+                              onClick={() => {
+                                setEditingInvitation(invitation);
+                                setReplacementEmail(invitation.email);
+                              }}
+                            >
+                              <MailPlus className="mr-2 size-3.5" />
+                              Corrigir e-mail
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={pending || invitation.effectiveStatus === "accepted" || invitation.effectiveStatus === "revoked"}
+                              onClick={() => setInvitationToRevoke(invitation)}
+                            >
+                              <Trash2 className="mr-2 size-3.5" />
+                              Revogar
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })()
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ) : null}
+      </Tabs>
+
+      <Dialog open={canManageInvitations && editingInvitation !== null} onOpenChange={(open) => !open && setEditingInvitation(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Corrigir e-mail do convite</DialogTitle>
@@ -393,7 +461,49 @@ export function OrganizationMembersPanel({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+      <AlertDialog
+        open={canManageInvitations && invitationToRevoke !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setInvitationToRevoke(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revogar convite?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {invitationToRevoke ? (
+                <>
+                  O convite enviado para <strong>{invitationToRevoke.email}</strong> será revogado imediatamente. A pessoa
+                  não poderá mais usar esse link de acesso.
+                </>
+              ) : (
+                "Este convite será revogado imediatamente."
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+
+                if (!invitationToRevoke) {
+                  return;
+                }
+
+                handleRevoke(invitationToRevoke.id);
+                setInvitationToRevoke(null);
+              }}
+            >
+              Confirmar revogação
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={canManageInvitations && inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Convidar membro</DialogTitle>
@@ -432,7 +542,7 @@ export function OrganizationMembersPanel({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
+      <Dialog open={canManageInvitations && upgradeDialogOpen} onOpenChange={setUpgradeDialogOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <div className="mb-2 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -440,8 +550,15 @@ export function OrganizationMembersPanel({
             </div>
             <DialogTitle>Seu plano atual chegou ao limite de membros</DialogTitle>
             <DialogDescription>
-              A organização <strong>{seatStatus.organizationName}</strong> está no plano <strong>{seatStatus.planLabel}</strong>,
-              que permite até <strong>{seatStatus.maxUsers}</strong> membro(s). Para convidar mais pessoas, será necessário fazer upgrade do plano.
+              {seatStatus ? (
+                <>
+                  A organização <strong>{seatStatus.organizationName}</strong> está no plano <strong>{seatStatus.planLabel}</strong>,
+                  que permite até <strong>{seatStatus.maxUsers}</strong> membro(s). Para convidar mais pessoas, será necessário
+                  fazer upgrade do plano.
+                </>
+              ) : (
+                "Seu plano atual chegou ao limite de membros. Para convidar mais pessoas, será necessário fazer upgrade do plano."
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -453,12 +570,9 @@ export function OrganizationMembersPanel({
             <Button type="button" variant="outline" onClick={() => setUpgradeDialogOpen(false)}>
               Agora não
             </Button>
-            <Button type="button" asChild>
-              <a href="/#planos">
-                Ver upgrade de plano
-                <ArrowUpRight className="ml-2 size-4" />
-              </a>
-            </Button>
+            <OpenBillingPortalButton organizationId={organization.organizationId} returnPath="/organization/billing" intent="upgrade">
+              Ver upgrade de plano
+            </OpenBillingPortalButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -22,6 +22,7 @@ export default async function InviteAcceptPage({ searchParams }: InviteAcceptPag
       <InviteAcceptState
         title="Convite inválido"
         description="O link de convite está incompleto ou não pode ser validado."
+        tone="warning"
         primaryHref="/login"
         primaryLabel="Ir para login"
       />
@@ -35,6 +36,7 @@ export default async function InviteAcceptPage({ searchParams }: InviteAcceptPag
       <InviteAcceptState
         title="Convite inválido"
         description="Não encontramos um convite correspondente a este link."
+        tone="warning"
         primaryHref="/login"
         primaryLabel="Ir para login"
       />
@@ -46,6 +48,7 @@ export default async function InviteAcceptPage({ searchParams }: InviteAcceptPag
         <InviteAcceptState
           title="Convite revogado"
           description={`O convite para ${invitation.organizationName} foi revogado. Solicite um novo convite ao administrador da organização.`}
+          tone="warning"
           primaryHref="/login"
           primaryLabel="Ir para login"
         />
@@ -58,6 +61,7 @@ export default async function InviteAcceptPage({ searchParams }: InviteAcceptPag
         <InviteAcceptState
           title="Convite expirado"
           description={`O convite para ${invitation.organizationName} expirou. Solicite um novo envio ao administrador da organização.`}
+          tone="warning"
           primaryHref="/login"
           primaryLabel="Ir para login"
         />
@@ -65,8 +69,9 @@ export default async function InviteAcceptPage({ searchParams }: InviteAcceptPag
   }
 
   const nextPath = buildInvitationAcceptPath(token);
-  const loginHref = `/login?next=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(invitation.email)}`;
-  const signupHref = `/signup?next=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(invitation.email)}`;
+  const invitationOrganization = encodeURIComponent(invitation.organizationName);
+  const loginHref = `/login?next=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(invitation.email)}&organization=${invitationOrganization}`;
+  const signupHref = `/signup?next=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(invitation.email)}&organization=${invitationOrganization}`;
   const switchAccountHref = `/auth/switch-account?next=${encodeURIComponent(nextPath)}&email=${encodeURIComponent(invitation.email)}`;
 
   const supabase = await createServerSupabaseClient();
@@ -79,6 +84,7 @@ export default async function InviteAcceptPage({ searchParams }: InviteAcceptPag
       <InviteAcceptState
         title={`Convite para ${invitation.organizationName}`}
         description={`Entre ou crie sua conta com ${invitation.email} para aceitar este convite.`}
+        tone="default"
         primaryHref={loginHref}
         primaryLabel="Entrar"
         secondaryHref={signupHref}
@@ -92,30 +98,30 @@ export default async function InviteAcceptPage({ searchParams }: InviteAcceptPag
       <InviteAcceptState
         title="Não foi possível validar sua conta"
         description="Sua sessão atual não possui um e-mail verificável para aceitar este convite."
+        tone="warning"
         primaryHref="/workspace"
         primaryLabel="Voltar para o app"
       />
     );
   }
 
+  let result:
+    | Awaited<ReturnType<typeof acceptOrganizationInvitationToken>>
+    | null = null;
+
   try {
-    const result = await acceptOrganizationInvitationToken({
+    result = await acceptOrganizationInvitationToken({
       token,
       userId: user.id,
       userEmail: user.email
     });
-
-    const destination = result.boardId
-      ? `/workspace?welcomeOrganization=${encodeURIComponent(result.organizationName)}&boardId=${result.boardId}`
-      : `/workspace?welcomeOrganization=${encodeURIComponent(result.organizationName)}`;
-
-    redirect(destination as Route);
   } catch (error) {
     if (error instanceof OrganizationUserLimitError) {
       return (
         <InviteAcceptState
           title="Não foi possível aceitar o convite"
           description={`A organização "${error.organizationName}" está no plano "${error.planLabel}", que permite até ${error.maxUsers} ${error.maxUsers === 1 ? "membro" : "membros"}. Para liberar novos acessos, peça ao administrador para fazer upgrade do plano.`}
+          tone="warning"
           primaryHref="/#planos"
           primaryLabel="Ver planos"
           secondaryHref="/login"
@@ -129,6 +135,7 @@ export default async function InviteAcceptPage({ searchParams }: InviteAcceptPag
       <InviteAcceptState
         title="Não foi possível aceitar o convite"
         description={message}
+        tone="warning"
         primaryHref="/workspace"
         primaryLabel="Ir para o app"
         secondaryHref={user.email !== invitation.email ? switchAccountHref : undefined}
@@ -136,4 +143,10 @@ export default async function InviteAcceptPage({ searchParams }: InviteAcceptPag
       />
     );
   }
+
+  const destination = result.boardId
+    ? `/workspace?welcomeOrganization=${encodeURIComponent(result.organizationName)}&boardId=${result.boardId}`
+    : `/workspace?welcomeOrganization=${encodeURIComponent(result.organizationName)}`;
+
+  redirect(destination as Route);
 }

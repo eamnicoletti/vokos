@@ -21,6 +21,7 @@ type LoginFormProps = ComponentProps<"div"> & {
   mode?: AuthMode;
   nextPath?: string;
   initialEmail?: string;
+  invitationOrganization?: string;
 };
 
 type PasswordRules = {
@@ -49,7 +50,28 @@ function safeNextPath(value?: string): string {
   return value;
 }
 
-export function LoginForm({ className, mode = "login", nextPath, initialEmail, ...props }: LoginFormProps) {
+function getFriendlyErrorMessage(message: string) {
+  const lower = message.toLowerCase();
+  if (lower.includes("rate limit")) {
+    return "Muitas tentativas consecutivas. Por favor, aguarde alguns minutos antes de tentar novamente.";
+  }
+  if (lower.includes("invalid login credentials")) {
+    return "E-mail ou senha incorretos.";
+  }
+  if (lower.includes("user already registered")) {
+    return "Este e-mail já está em uso.";
+  }
+  return "Ocorreu um erro ao processar sua solicitação. Tente novamente.";
+}
+
+export function LoginForm({
+  className,
+  mode = "login",
+  nextPath,
+  initialEmail,
+  invitationOrganization,
+  ...props
+}: LoginFormProps) {
   const router = useRouter();
   const isSignup = mode === "signup";
   const safeNext = safeNextPath(nextPath);
@@ -95,7 +117,7 @@ export function LoginForm({ className, mode = "login", nextPath, initialEmail, .
       });
 
       if (error) {
-        toast.error(error.message);
+        toast.error(getFriendlyErrorMessage(error.message));
         setPending(false);
         return;
       }
@@ -105,7 +127,16 @@ export function LoginForm({ className, mode = "login", nextPath, initialEmail, .
         router.replace(safeNext as Route);
       } else {
         toast.success("Conta criada. Verifique seu e-mail para confirmar o cadastro.");
-        router.replace("/login");
+        const checkEmailParams = new URLSearchParams({
+          email,
+          next: safeNext
+        });
+
+        if (invitationOrganization) {
+          checkEmailParams.set("organization", invitationOrganization);
+        }
+
+        router.replace((`/signup/check-email?${checkEmailParams.toString()}`) as Route);
       }
 
       router.refresh();
@@ -136,7 +167,13 @@ export function LoginForm({ className, mode = "login", nextPath, initialEmail, .
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">{isSignup ? "Crie sua conta" : "Bem-vindo de volta"}</h1>
                 <p className="text-balance text-muted-foreground">
-                  {isSignup ? "Cadastre-se com e-mail e senha forte." : "Acesse sua conta com e-mail e senha."}
+                  {invitationOrganization
+                    ? isSignup
+                      ? `Crie sua conta para entrar na organização ${invitationOrganization}.`
+                      : `Entre com sua conta para aceitar o convite da organização ${invitationOrganization}.`
+                    : isSignup
+                      ? "Cadastre-se com e-mail e senha forte."
+                      : "Acesse sua conta com e-mail e senha."}
                 </p>
               </div>
 
@@ -271,7 +308,8 @@ export function LoginForm({ className, mode = "login", nextPath, initialEmail, .
                     pathname: isSignup ? "/login" : "/signup",
                     query: {
                       next: safeNext,
-                      ...(email ? { email } : {})
+                      ...(email ? { email } : {}),
+                      ...(invitationOrganization ? { organization: invitationOrganization } : {})
                     }
                   }}
                   className="underline underline-offset-4"

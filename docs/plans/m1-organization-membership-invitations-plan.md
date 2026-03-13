@@ -1,6 +1,6 @@
 # M1 Plan - Organization Membership and Invitations
 
-Status: `draft`  
+Status: `done`  
 Date: `2026-03-12`  
 Scope: `M1`  
 Owner model: `organization-first`
@@ -75,8 +75,8 @@ Expected UX:
 
 ## 4. UX and Product Requirements
 
-- [ ] Add a members management screen for the active organization.
-- [ ] Display two sections:
+- [x] Add a members management screen for the active organization.
+- [x] Display two sections:
 - `Active members`
 - `Pending invitations`
 - [ ] Show clear badges:
@@ -85,25 +85,25 @@ Expected UX:
 - `Expirado`
 - `Revogado`
 - `Aceito`
-- [ ] Disable resend action during cooldown.
-- [ ] Show cooldown feedback in UI.
-- [ ] Show expiration timestamp in a readable format.
-- [ ] Surface empty states for:
+- [x] Disable resend action during cooldown.
+- [x] Show cooldown feedback in UI.
+- [x] Show expiration timestamp in a readable format.
+- [x] Surface empty states for:
 - no members beyond owner
 - no pending invitations
 - invalid invite
 - expired invite
 - revoked invite
 - already accepted invite
-- [ ] Replace the current placeholder action in sidebar with navigation to the real membership flow.
-- [ ] Add post-acceptance success dialog after login/signup resolution.
+- [x] Replace the current placeholder action in sidebar with navigation to the real membership flow.
+- [x] Add post-acceptance success dialog after login/signup resolution.
 
 ## 5. Data Model and Persistence
 
 ### 5.1 Required tables
 
-- [ ] Ensure `organization_invitations` exists in database schema.
-- [ ] Required fields:
+- [x] Ensure `organization_invitations` exists in database schema.
+- [x] Required fields:
 - `id`
 - `organization_id`
 - `email`
@@ -117,47 +117,47 @@ Expected UX:
 
 ### 5.2 Required constraints
 
-- [ ] Unique pending invitation per `organization_id + email`.
-- [ ] Index by `organization_id + status`.
-- [ ] Index by normalized email.
-- [ ] Store only token hash, never raw token.
-- [ ] Normalize emails before persistence and comparison.
+- [x] Unique pending invitation per `organization_id + email`.
+- [x] Index by `organization_id + status`.
+- [x] Index by normalized email.
+- [x] Store only token hash, never raw token.
+- [x] Normalize emails before persistence and comparison.
 
 ### 5.3 Membership writes
 
-- [ ] Invitation acceptance must upsert or activate `organization_members`.
-- [ ] Membership creation must be idempotent.
-- [ ] Re-accepting an already accepted invite must not duplicate membership rows.
+- [x] Invitation acceptance must upsert or activate `organization_members`.
+- [x] Membership creation must be idempotent.
+- [x] Re-accepting an already accepted invite must not duplicate membership rows.
 
 ## 6. Backend Implementation Checklist
 
 ### 6.1 Server actions / endpoints
 
-- [ ] Create invite action.
-- [ ] Create resend invite action.
-- [ ] Create revoke invite action.
-- [ ] Create accept invite action.
-- [ ] Create list members + invitations query layer.
-- [ ] Add owner-only authorization checks.
-- [ ] Validate organization context on every mutation.
+- [x] Create invite action.
+- [x] Create resend invite action.
+- [x] Create revoke invite action.
+- [x] Create accept invite action.
+- [x] Create list members + invitations query layer.
+- [x] Add owner-only authorization checks.
+- [x] Validate organization context on every mutation.
 
 ### 6.2 Business rules
 
-- [ ] Only `owner` can invite and manage invitations.
-- [ ] Resend before cooldown returns a controlled error.
-- [ ] Revoke only works for pending invitations.
-- [ ] Accept only works for pending and unexpired invitations.
-- [ ] Accept fails if authenticated email does not match invitation email.
-- [ ] Accept succeeds idempotently if membership already exists and is active.
-- [ ] Expired invitations cannot be accepted.
-- [ ] Revoked invitations cannot be accepted.
+- [x] Only `owner` can invite and manage invitations.
+- [x] Resend before cooldown returns a controlled error.
+- [x] Revoke only works for pending invitations.
+- [x] Accept only works for pending and unexpired invitations.
+- [x] Accept fails if authenticated email does not match invitation email.
+- [x] Accept succeeds idempotently if membership already exists and is active.
+- [x] Expired invitations cannot be accepted.
+- [x] Revoked invitations cannot be accepted.
 
 ### 6.3 Auth and redirect handling
 
-- [ ] Add invite acceptance route.
-- [ ] Preserve invite token across redirects to login/signup.
-- [ ] After auth, resolve invite before redirecting to the in-app destination.
-- [ ] Ensure invited user lands inside the invited organization context, not an arbitrary default context.
+- [x] Add invite acceptance route.
+- [x] Preserve invite token across redirects to login/signup.
+- [x] After auth, resolve invite before redirecting to the in-app destination.
+- [x] Ensure invited user lands inside the invited organization context, not an arbitrary default context.
 
 ## 7. Email Delivery Checklist
 
@@ -165,78 +165,78 @@ Current implementation note:
 - Resend is the transactional provider currently wired for invitation delivery.
 - Local/testing may use `resend.dev`; production must switch to a verified domain sender.
 
-- [ ] Create invitation email template.
-- [ ] Include organization name in subject/body.
-- [ ] Include expiration information.
-- [ ] Include one primary CTA with invitation link.
-- [ ] Include fallback plain URL.
-- [ ] Avoid leaking token anywhere except the secure link.
-- [ ] Log email delivery failures without exposing token value.
+- [x] Create invitation email template.
+- [x] Include organization name in subject/body.
+- [x] Include expiration information.
+- [x] Include one primary CTA with invitation link.
+- [x] Include fallback plain URL.
+- [x] Avoid leaking token anywhere except the secure link.
+- [x] Log email delivery failures without exposing token value.
 
 ## 8. Audit and Security Checklist
 
-- [ ] Audit event on invite creation.
-- [ ] Audit event on resend.
-- [ ] Audit event on revoke.
-- [ ] Audit event on accept.
-- [ ] Audit event on expiration handling if expiration is materialized or processed.
-- [ ] Enforce single-use token behavior.
-- [ ] Hash token before database write.
-- [ ] Compare normalized email from auth identity to invitation email.
-- [ ] Do not allow invitation acceptance under a different email.
-- [ ] Keep invitation acceptance idempotent.
-- [ ] Do not mutate original invitation email in place.
+- [x] Audit event on invite creation.
+- [x] Audit event on resend.
+- [x] Audit event on revoke.
+- [x] Audit event on accept.
+- [x] Audit event on expiration handling if expiration is materialized or processed.
+- [x] Enforce single-use token behavior.
+- [x] Hash token before database write.
+- [x] Compare normalized email from auth identity to invitation email.
+- [x] Do not allow invitation acceptance under a different email.
+- [x] Keep invitation acceptance idempotent.
+- [x] Do not mutate original invitation email in place.
 
 ## 9. Frontend Implementation Checklist
 
 ### 9.1 Organization members page
 
-- [ ] Add page route for organization membership management.
-- [ ] Load active members and pending invitations.
-- [ ] Add invite form with email validation.
-- [ ] Add revoke action.
-- [ ] Add resend action.
-- [ ] Add correct-email flow that creates a replacement invite.
-- [ ] Add optimistic or fast refresh behavior after mutations.
+- [x] Add page route for organization membership management.
+- [x] Load active members and pending invitations.
+- [x] Add invite form with email validation.
+- [x] Add revoke action.
+- [x] Add resend action.
+- [x] Add correct-email flow that creates a replacement invite.
+- [x] Add optimistic or fast refresh behavior after mutations.
 
 ### 9.2 Invitation acceptance flow
 
-- [ ] Add invite landing page for token validation.
-- [ ] Render proper state for:
+- [x] Add invite landing page for token validation.
+- [x] Render proper state for:
 - valid invite
 - invalid token
 - expired invite
 - revoked invite
 - accepted invite
-- [ ] Redirect unauthenticated users to login/signup with preserved token state.
-- [ ] Show post-acceptance welcome dialog inside the app shell.
+- [x] Redirect unauthenticated users to login/signup with preserved token state.
+- [x] Show post-acceptance welcome dialog inside the app shell.
 
 ## 10. Suggested Implementation Order
 
 ### Phase 1 - Schema and contracts
 
-- [ ] Add or align migration for `organization_invitations`.
-- [ ] Add shared status enums/types as needed.
-- [ ] Document final invite status transitions.
+- [x] Add or align migration for `organization_invitations`.
+- [x] Add shared status enums/types as needed.
+- [x] Document final invite status transitions.
 
 ### Phase 2 - Backend mutation path
 
-- [ ] Implement create/resend/revoke/accept actions.
-- [ ] Implement token hashing and validation.
-- [ ] Implement idempotent member activation.
-- [ ] Implement audit writes for invitation lifecycle.
+- [x] Implement create/resend/revoke/accept actions.
+- [x] Implement token hashing and validation.
+- [x] Implement idempotent member activation.
+- [x] Implement audit writes for invitation lifecycle.
 
 ### Phase 3 - Members UI
 
-- [ ] Replace placeholder membership CTA.
-- [ ] Add members page with active/pending sections.
-- [ ] Add invite dialog/form and invitation row actions.
+- [x] Replace placeholder membership CTA.
+- [x] Add members page with active/pending sections.
+- [x] Add invite dialog/form and invitation row actions.
 
 ### Phase 4 - Acceptance UX
 
-- [ ] Add invite accept route.
-- [ ] Connect login/signup redirects to invitation resolution.
-- [ ] Add post-acceptance success dialog.
+- [x] Add invite accept route.
+- [x] Connect login/signup redirects to invitation resolution.
+- [x] Add post-acceptance success dialog.
 
 ### Phase 5 - Hardening
 
@@ -257,6 +257,17 @@ Current implementation note:
 - [ ] Accept with mismatched email fails.
 - [ ] Accept expired invite fails.
 - [ ] Accept revoked invite fails.
+
+## 12. Current Closure
+
+Current assessment:
+- core M1 invitation and membership flow is implemented end-to-end
+- feature is considered complete for M1 delivery
+- `Reenviado` remains supporting metadata, not a primary status badge
+- automated tests are intentionally deferred to the post-MCP hardening phase
+
+Deferred post-MCP items:
+- add automated tests for authorization, acceptance flow, and cross-organization misuse
 
 ### 11.2 Integration tests
 

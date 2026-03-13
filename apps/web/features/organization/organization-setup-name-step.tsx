@@ -88,7 +88,7 @@ export function OrganizationSetupNameStep({ draft, userEmail }: OrganizationSetu
                   id="organization-name"
                   value={organizationName}
                   onChange={(event) => setOrganizationName(event.target.value)}
-                  placeholder="Ex.: Faria Silva Advogados"
+                  placeholder="Ex.: Faria & Silva Advogados"
                   className="h-12 rounded-lg border-slate-300/80 bg-white/90 text-base shadow-none dark:border-white/10 dark:bg-white/5"
                 />
                 <p className="text-xs text-slate-500 dark:text-slate-400">

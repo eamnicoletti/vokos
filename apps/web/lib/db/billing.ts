@@ -36,6 +36,7 @@ export type OrganizationBillingSummary = {
   cancelAtPeriodEnd: boolean;
   canceledAt: string | null;
   stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
 };
 
 export type AccountBillingOverview = {
@@ -46,6 +47,7 @@ export type AccountBillingOverview = {
 
 type BillingSubscriptionRow = {
   organization_id: string;
+  stripe_subscription_id: string | null;
   plan_code: OrganizationPlanCode;
   status: OrganizationBillingSummary["subscriptionStatus"];
   current_period_start: string | null;
@@ -112,7 +114,7 @@ async function listOwnedOrganizationsBillingRows(userId: string) {
   const [{ data: subscriptions, error: subscriptionsError }, { data: customers, error: customersError }] = await Promise.all([
     admin
       .from("billing_subscriptions")
-      .select("organization_id, plan_code, status, current_period_start, current_period_end, cancel_at_period_end, canceled_at")
+      .select("organization_id, stripe_subscription_id, plan_code, status, current_period_start, current_period_end, cancel_at_period_end, canceled_at")
       .in("organization_id", organizationIds),
     admin
       .from("billing_customers")
@@ -160,7 +162,8 @@ async function listOwnedOrganizationsBillingRows(userId: string) {
       currentPeriodEnd: subscription.current_period_end,
       cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
       canceledAt: subscription.canceled_at,
-      stripeCustomerId: customerByOrganization.get(organization.id) ?? null
+      stripeCustomerId: customerByOrganization.get(organization.id) ?? null,
+      stripeSubscriptionId: subscription.stripe_subscription_id ?? null
     });
   }
 
@@ -183,7 +186,7 @@ export async function getCurrentOrganizationBillingSummary(): Promise<Organizati
   const [{ data: subscription, error: subscriptionError }, { data: customer, error: customerError }] = await Promise.all([
     admin
       .from("billing_subscriptions")
-      .select("organization_id, plan_code, status, current_period_start, current_period_end, cancel_at_period_end, canceled_at")
+      .select("organization_id, stripe_subscription_id, plan_code, status, current_period_start, current_period_end, cancel_at_period_end, canceled_at")
       .eq("organization_id", organization.organizationId)
       .maybeSingle(),
     admin
@@ -222,7 +225,8 @@ export async function getCurrentOrganizationBillingSummary(): Promise<Organizati
     currentPeriodEnd: subscription.current_period_end,
     cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
     canceledAt: subscription.canceled_at,
-    stripeCustomerId: customer?.stripe_customer_id ?? null
+    stripeCustomerId: customer?.stripe_customer_id ?? null,
+    stripeSubscriptionId: subscription.stripe_subscription_id ?? null
   };
 }
 

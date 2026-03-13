@@ -1,7 +1,7 @@
 import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { AuthenticatedShell } from "@/components/auth/authenticated-shell";
-import { getCurrentOrganization, listMyOrganizations } from "@/lib/db/organizations";
+import { getCurrentOrganization, getOrganizationWorkspaceStatus, listMyOrganizations } from "@/lib/db/organizations";
 import { listMyWorkspaceMemberships } from "@/lib/db/workspaces";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -26,12 +26,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/organization/setup" as Route);
   }
 
+  const workspaceStatus = await getOrganizationWorkspaceStatus(organization.organizationId);
+
   return (
     <AuthenticatedShell
       memberships={memberships}
       userEmail={user.email ?? ""}
       currentOrganization={organization}
       organizations={organizations}
+      workspaceStatus={workspaceStatus}
     >
       {children}
     </AuthenticatedShell>

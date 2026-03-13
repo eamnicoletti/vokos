@@ -45,7 +45,8 @@ export class OrganizationUserLimitError extends Error {
 async function writeInvitationAuditEvent(params: {
   organizationId: string;
   invitationId: string;
-  actorUserId: string;
+  actorType?: "human" | "bot" | "system";
+  actorUserId?: string | null;
   action: string;
   diffJson: Record<string, unknown>;
 }) {
@@ -57,8 +58,8 @@ async function writeInvitationAuditEvent(params: {
     entity_type: "organization_invitation",
     entity_id: params.invitationId,
     action: params.action,
-    actor_type: "human",
-    actor_user_id: params.actorUserId,
+    actor_type: params.actorType ?? "human",
+    actor_user_id: params.actorUserId ?? null,
     diff_json: params.diffJson
   });
 
@@ -364,6 +365,12 @@ export async function replaceOrganizationInvitationEmail(params: ManageInvitatio
 
 export async function markOrganizationInvitationExpiredById(organizationId: string, invitationId: string) {
   const admin = createAdminSupabaseClient();
+  const invitation = await getInvitationRecord(organizationId, invitationId);
+
+  if (invitation.status !== "pending") {
+    return;
+  }
+
   const { error } = await admin
     .from("organization_invitations")
     .update({ status: "expired" })
@@ -374,6 +381,14 @@ export async function markOrganizationInvitationExpiredById(organizationId: stri
   if (error) {
     throw new Error(error.message);
   }
+
+  await writeInvitationAuditEvent({
+    organizationId,
+    invitationId,
+    actorType: "system",
+    action: "member_invite_expire",
+    diffJson: { email: invitation.email, expires_at: invitation.expires_at }
+  });
 }
 
 export async function acceptOrganizationInvitationToken(params: {

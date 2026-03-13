@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireOrganizationOwnerContext } from "@/lib/auth";
+import { getOrganizationMemberAccess } from "@/lib/db/organizations";
 import {
   createOrganizationInvitation,
   replaceOrganizationInvitationEmail,
@@ -24,9 +24,23 @@ const replaceInvitationSchema = manageInvitationSchema.extend({
   email: z.string().email()
 });
 
+async function requireInvitationManagementAccess(organizationId: string) {
+  const access = await getOrganizationMemberAccess(organizationId);
+
+  if (!access) {
+    throw new Error("Organização não encontrada.");
+  }
+
+  if (!access.canManageInvitations) {
+    throw new Error("Você não tem permissão para gerenciar convites desta organização.");
+  }
+
+  return access;
+}
+
 export async function inviteOrganizationMemberAction(rawInput: unknown) {
   const input = inviteMemberSchema.parse(rawInput);
-  const organization = await requireOrganizationOwnerContext(input.organizationId);
+  const organization = await requireInvitationManagementAccess(input.organizationId);
 
   if (organization.email && input.email.trim().toLowerCase() === organization.email.trim().toLowerCase()) {
     throw new Error("Você já faz parte desta organização");
@@ -44,7 +58,7 @@ export async function inviteOrganizationMemberAction(rawInput: unknown) {
 
 export async function resendOrganizationInvitationAction(rawInput: unknown) {
   const input = manageInvitationSchema.parse(rawInput);
-  const organization = await requireOrganizationOwnerContext(input.organizationId);
+  const organization = await requireInvitationManagementAccess(input.organizationId);
 
   const result = await resendOrganizationInvitation({
     organizationId: organization.organizationId,
@@ -58,7 +72,7 @@ export async function resendOrganizationInvitationAction(rawInput: unknown) {
 
 export async function revokeOrganizationInvitationAction(rawInput: unknown) {
   const input = manageInvitationSchema.parse(rawInput);
-  const organization = await requireOrganizationOwnerContext(input.organizationId);
+  const organization = await requireInvitationManagementAccess(input.organizationId);
 
   const result = await revokeOrganizationInvitation({
     organizationId: organization.organizationId,
@@ -72,7 +86,7 @@ export async function revokeOrganizationInvitationAction(rawInput: unknown) {
 
 export async function replaceOrganizationInvitationEmailAction(rawInput: unknown) {
   const input = replaceInvitationSchema.parse(rawInput);
-  const organization = await requireOrganizationOwnerContext(input.organizationId);
+  const organization = await requireInvitationManagementAccess(input.organizationId);
 
   const result = await replaceOrganizationInvitationEmail({
     organizationId: organization.organizationId,

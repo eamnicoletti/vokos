@@ -9,6 +9,7 @@ import { openOrganizationBillingPortalAction } from "@/app/(app)/organization/bi
 type OpenBillingPortalButtonProps = {
   organizationId: string;
   returnPath: string;
+  intent?: "manage" | "upgrade";
   disabled?: boolean;
   children?: React.ReactNode;
 };
@@ -16,6 +17,7 @@ type OpenBillingPortalButtonProps = {
 export function OpenBillingPortalButton({
   organizationId,
   returnPath,
+  intent = "manage",
   disabled = false,
   children
 }: OpenBillingPortalButtonProps) {
@@ -30,7 +32,8 @@ export function OpenBillingPortalButton({
         startTransition(async () => {
           const request = openOrganizationBillingPortalAction({
             organizationId,
-            returnPath
+            returnPath,
+            intent
           });
 
           toast.promise(request, {

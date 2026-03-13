@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentOrganizationContext, listMyOrganizationContexts } from "@/lib/auth";
+import { getOrganizationWorkspaceStatus } from "@/lib/db/organizations";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const createWorkspaceSchema = z.object({
@@ -41,77 +42,47 @@ export async function createWorkspaceAction(rawInput: unknown) {
     throw new Error("Active organization not found");
   }
 
+  if (organization.role !== "owner") {
+    throw new Error("Apenas administradores da organização podem criar workspaces.");
+  }
+
+  const workspaceStatus = await getOrganizationWorkspaceStatus(organization.organizationId);
+
+  if (!workspaceStatus.canCreateMoreWorkspaces) {
+    const maxWorkspacesLabel = workspaceStatus.maxWorkspaces === 1 ? "1 workspace" : `${workspaceStatus.maxWorkspaces} workspaces`;
+    throw new Error(
+      `Não é possível criar outro workspace porque a organização "${workspaceStatus.organizationName}" está no plano "${workspaceStatus.planLabel}" e esse plano permite até ${maxWorkspacesLabel}.`
+    );
+  }
+
   const slug = `${toSlug(input.name)}-${randomUUID().slice(0, 8)}`;
-  const { data: workspace, error: workspaceError } = await supabase
-    .from("workspaces")
-    .insert({
-      name: input.name,
-      slug,
-      owner_user_id: user.id,
-      organization_id: organization.organizationId
-    })
-    .select("id")
-    .single();
-
-  if (workspaceError || !workspace) {
-    throw new Error(workspaceError?.message ?? "Workspace creation failed");
-  }
-
-  const { data: board, error: boardError } = await supabase
-    .from("boards")
-    .insert({
-      workspace_id: workspace.id,
-      organization_id: organization.organizationId,
-      name: "Board Principal",
-      is_default: true,
-      created_by_user_id: user.id
-    })
-    .select("id")
-    .single();
-
-  if (boardError || !board) {
-    throw new Error(boardError?.message ?? "Default board creation failed");
-  }
-
-  const { error: listsError } = await supabase.from("lists").insert([
+  const { data: createdWorkspace, error: workspaceError } = await supabase.rpc(
+    "bootstrap_m1_workspace_for_organization",
     {
-      workspace_id: workspace.id,
-      organization_id: organization.organizationId,
-      board_id: board.id,
-      name: "Inbox Juridico",
-      position: 100
-    },
-    {
-      workspace_id: workspace.id,
-      organization_id: organization.organizationId,
-      board_id: board.id,
-      name: "Em andamento",
-      position: 200
-    },
-    {
-      workspace_id: workspace.id,
-      organization_id: organization.organizationId,
-      board_id: board.id,
-      name: "Revisao",
-      position: 300
-    },
-    {
-      workspace_id: workspace.id,
-      organization_id: organization.organizationId,
-      board_id: board.id,
-      name: "Concluido",
-      position: 400
+      p_user_id: user.id,
+      p_organization_id: organization.organizationId,
+      p_workspace_name: input.name,
+      p_workspace_slug: slug
     }
-  ]);
+  );
 
-  if (listsError) {
-    throw new Error(listsError.message);
+  if (workspaceError || !createdWorkspace) {
+    throw new Error(workspaceError?.message ?? "Falha ao criar workspace");
+  }
+
+  const payload =
+    typeof createdWorkspace === "string" ? (JSON.parse(createdWorkspace) as { workspace_id?: string; board_id?: string }) : createdWorkspace;
+  const workspaceId = typeof payload === "object" && payload !== null && "workspace_id" in payload ? payload.workspace_id : null;
+  const boardId = typeof payload === "object" && payload !== null && "board_id" in payload ? payload.board_id : null;
+
+  if (!workspaceId || !boardId) {
+    throw new Error("Falha ao inicializar o workspace criado.");
   }
 
   const { error: metadataError } = await supabase.auth.updateUser({
     data: {
       active_organization_id: organization.organizationId,
-      workspace_id: workspace.id,
+      workspace_id: workspaceId,
       workspace_role: organization.role === "owner" ? "admin" : "member"
     }
   });
@@ -121,10 +92,10 @@ export async function createWorkspaceAction(rawInput: unknown) {
   }
 
   const { error: auditError } = await supabase.from("audit_events").insert({
-    workspace_id: workspace.id,
+    workspace_id: workspaceId,
     organization_id: organization.organizationId,
     entity_type: "workspace",
-    entity_id: workspace.id,
+    entity_id: workspaceId,
     action: "workspace_create",
     actor_type: "human",
     actor_user_id: user.id,
@@ -136,8 +107,9 @@ export async function createWorkspaceAction(rawInput: unknown) {
   }
 
   revalidatePath("/workspace");
+  revalidatePath("/", "layout");
 
-  return { workspaceId: workspace.id, boardId: board.id };
+  return { workspaceId, boardId };
 }
 
 export async function setActiveOrganizationAction(rawInput: unknown) {

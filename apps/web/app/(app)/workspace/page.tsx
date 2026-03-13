@@ -1,4 +1,5 @@
 import { CalendarClock, FolderKanban } from "lucide-react";
+import { getCurrentOrganization, getOrganizationWorkspaceStatus } from "@/lib/db/organizations";
 import { listMyWorkspaceMemberships, listWorkspaceTaskOverview } from "@/lib/db/workspaces";
 import { WorkspaceTaskPanel } from "@/features/workspaces/workspace-task-panel";
 import { WorkspaceBootstrap } from "@/features/workspaces/workspace-bootstrap";
@@ -15,9 +16,17 @@ export default async function WorkspacePage({
   const hasWorkspaces = memberships.length > 0;
 
   if (!hasWorkspaces) {
+    const organization = await getCurrentOrganization();
+
+    if (!organization) {
+      return null;
+    }
+
+    const workspaceStatus = await getOrganizationWorkspaceStatus(organization.organizationId);
+
     return (
       <main className="mx-auto w-full max-w-6xl space-y-6">
-        <WorkspaceBootstrap />
+        <WorkspaceBootstrap organizationId={organization.organizationId} workspaceStatus={workspaceStatus} />
       </main>
     );
   }

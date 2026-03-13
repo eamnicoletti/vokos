@@ -6,9 +6,9 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; email?: string }>;
+  searchParams: Promise<{ next?: string; email?: string; organization?: string }>;
 }) {
-  const { next, email } = await searchParams
+  const { next, email, organization } = await searchParams
   const supabase = await createServerSupabaseClient()
   const {
     data: { user },
@@ -21,7 +21,7 @@ export default async function SignupPage({
   return (
     <div className="flex min-h-svh flex-col items-center justify-center bg-muted p-6 md:p-10">
       <div className="w-full max-w-sm md:max-w-4xl">
-        <LoginForm mode="signup" nextPath={next} initialEmail={email} />
+        <LoginForm mode="signup" nextPath={next} initialEmail={email} invitationOrganization={organization} />
       </div>
     </div>
   )

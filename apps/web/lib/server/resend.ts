@@ -10,7 +10,7 @@ type SendInvitationEmailParams = {
 export async function sendOrganizationInvitationEmail(params: SendInvitationEmailParams) {
   const resend = getOptionalResendEnv();
 
-  // TODO: Replace the test sender with a verified production domain on Resend before go-live.
+  // Use the verified sender configured in RESEND_FROM_EMAIL.
   if (!resend.apiKey || !resend.fromEmail) {
     return {
       ok: false,
@@ -53,6 +53,12 @@ export async function sendOrganizationInvitationEmail(params: SendInvitationEmai
               Se o botão não funcionar, use este link:<br />
               <a href="${params.inviteLink}">${params.inviteLink}</a>
             </p>
+            <p style="margin-top: 24px; font-size: 13px; color: #6b7280;">
+              <strong>Atenção:</strong> Este convite é válido apenas para o e-mail ${params.to}. Se você recebeu este convite de outro e-mail, ignore esta mensagem.
+            </p>
+            <p style="margin-top: 24px; font-size: 13px; color: #6b7280;">
+              Esta é uma mensagem automática e não deve ser respondida. Para entrar em contato conosco, acesse nossa <strong>Central de Ajuda</strong> pelo nosso site <a href="https://vokosai.com.br">https://vokos.ai/ajuda</a>.
+            </p>
           </div>
         `
       })
@@ -60,9 +66,12 @@ export async function sendOrganizationInvitationEmail(params: SendInvitationEmai
 
     if (!response.ok) {
       const payload = (await response.text()) || "unknown error";
+      const isRateLimit = /rate\s*limit/i.test(payload);
       return {
         ok: false,
-        error: `Falha ao enviar e-mail pelo Resend: ${payload}`
+        error: isRateLimit
+          ? "Limite de envio de e-mails atingido. Aguarde alguns minutos e tente novamente, ou use o botão \"Copiar link\" para compartilhar o convite."
+          : `Falha ao enviar e-mail pelo Resend: ${payload}`
       };
     }
 

@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { getCurrentOrganizationContext, listMyOrganizationContexts } from "@/lib/auth";
+import { listMyWorkspaceMemberships } from "@/lib/db/workspaces";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { OrganizationPlanCode } from "@/lib/auth";
@@ -52,6 +53,27 @@ export type OrganizationSeatStatus = {
   maxUsers: number | null;
   activeUsersCount: number;
   canInviteMoreUsers: boolean;
+};
+
+export type OrganizationWorkspaceStatus = {
+  organizationId: string;
+  organizationName: string;
+  planCode: OrganizationPlanCode;
+  planLabel: string;
+  maxWorkspaces: number | null;
+  activeWorkspacesCount: number;
+  canCreateMoreWorkspaces: boolean;
+};
+
+export type OrganizationMemberAccess = {
+  userId: string;
+  email: string;
+  organizationId: string;
+  organizationName: string;
+  organizationRole: "owner" | "member";
+  workspaceRole: "admin" | "manager" | "member";
+  canManageInvitations: boolean;
+  canViewPendingInvitations: boolean;
 };
 
 export type OrganizationSetupDraft = {
@@ -263,6 +285,42 @@ export async function getCurrentOrganization() {
   return getCurrentOrganizationContext();
 }
 
+export async function getOrganizationMemberAccess(organizationId: string): Promise<OrganizationMemberAccess | null> {
+  const [organizations, workspaceMemberships] = await Promise.all([
+    listMyOrganizationContexts(),
+    listMyWorkspaceMemberships()
+  ]);
+
+  const organization = organizations.find((item) => item.organizationId === organizationId);
+
+  if (!organization) {
+    return null;
+  }
+
+  const workspaceRole =
+    organization.role === "owner"
+      ? "admin"
+      : workspaceMemberships.find(
+          (membership) =>
+            membership.organization_id === organizationId && (membership.role === "manager" || membership.role === "admin")
+        )?.role ??
+        workspaceMemberships.find((membership) => membership.organization_id === organizationId)?.role ??
+        "member";
+
+  const canManageInvitations = organization.role === "owner" || workspaceRole === "manager";
+
+  return {
+    userId: organization.userId,
+    email: organization.email,
+    organizationId: organization.organizationId,
+    organizationName: organization.organizationName,
+    organizationRole: organization.role,
+    workspaceRole,
+    canManageInvitations,
+    canViewPendingInvitations: canManageInvitations
+  };
+}
+
 export async function listOrganizationMembers(organizationId: string): Promise<OrganizationMemberRecord[]> {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase.rpc("list_organization_members", {
@@ -404,6 +462,53 @@ export async function getOrganizationSeatStatus(organizationId: string): Promise
     maxUsers,
     activeUsersCount,
     canInviteMoreUsers: maxUsers === null ? true : activeUsersCount < maxUsers
+  };
+}
+
+export async function getOrganizationWorkspaceStatus(organizationId: string): Promise<OrganizationWorkspaceStatus> {
+  const admin = createAdminSupabaseClient();
+  const [{ data: organization, error: organizationError }, { data: subscription, error: subscriptionError }] = await Promise.all([
+    admin.from("organizations").select("name").eq("id", organizationId).maybeSingle(),
+    admin
+      .from("billing_subscriptions")
+      .select("plan_code")
+      .eq("organization_id", organizationId)
+      .in("status", ["active", "trialing"])
+      .maybeSingle()
+  ]);
+
+  if (organizationError || !organization) {
+    throw new Error(organizationError?.message ?? "Organization not found");
+  }
+
+  if (subscriptionError || !subscription) {
+    throw new Error(subscriptionError?.message ?? "Plan information not found for organization");
+  }
+
+  const [{ data: limits, error: limitsError }, { data: usage, error: usageError }] = await Promise.all([
+    admin.from("plan_limits").select("max_workspaces").eq("plan_code", subscription.plan_code).maybeSingle(),
+    admin.from("organization_usage").select("active_workspaces_count").eq("organization_id", organizationId).maybeSingle()
+  ]);
+
+  if (limitsError) {
+    throw new Error(limitsError.message);
+  }
+
+  if (usageError) {
+    throw new Error(usageError.message);
+  }
+
+  const maxWorkspaces = limits?.max_workspaces ?? null;
+  const activeWorkspacesCount = Number(usage?.active_workspaces_count ?? 0);
+
+  return {
+    organizationId,
+    organizationName: organization.name,
+    planCode: subscription.plan_code,
+    planLabel: getPlanLabel(subscription.plan_code),
+    maxWorkspaces,
+    activeWorkspacesCount,
+    canCreateMoreWorkspaces: maxWorkspaces === null ? true : activeWorkspacesCount < maxWorkspaces
   };
 }
 

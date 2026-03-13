@@ -12,6 +12,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { ModeToggle } from "@/components/mode-toggle";
 import { LogoIcon } from "@/components/logo";
 import type { OrganizationContext } from "@/lib/auth";
+import type { OrganizationWorkspaceStatus } from "@/lib/db/organizations";
 import type { WorkspaceMembership } from "@/lib/db/workspaces";
 
 type AuthenticatedShellProps = PropsWithChildren<{
@@ -19,6 +20,7 @@ type AuthenticatedShellProps = PropsWithChildren<{
   userEmail: string;
   currentOrganization: OrganizationContext;
   organizations: OrganizationContext[];
+  workspaceStatus: OrganizationWorkspaceStatus;
 }>;
 
 export function AuthenticatedShell({
@@ -26,7 +28,8 @@ export function AuthenticatedShell({
   memberships,
   userEmail,
   currentOrganization,
-  organizations
+  organizations,
+  workspaceStatus
 }: AuthenticatedShellProps) {
   const pathname = usePathname();
 
@@ -89,6 +92,7 @@ export function AuthenticatedShell({
         userEmail={userEmail}
         currentOrganization={currentOrganization}
         organizations={organizations}
+        workspaceStatus={workspaceStatus}
       />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b">
