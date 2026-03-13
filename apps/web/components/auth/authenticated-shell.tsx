@@ -9,21 +9,32 @@ import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { ModeToggle } from "@/components/mode-toggle";
+import { LogoIcon } from "@/components/logo";
+import type { OrganizationContext } from "@/lib/auth";
 import type { WorkspaceMembership } from "@/lib/db/workspaces";
 
 type AuthenticatedShellProps = PropsWithChildren<{
   memberships: WorkspaceMembership[];
   userEmail: string;
+  currentOrganization: OrganizationContext;
+  organizations: OrganizationContext[];
 }>;
 
-export function AuthenticatedShell({ children, memberships, userEmail }: AuthenticatedShellProps) {
+export function AuthenticatedShell({
+  children,
+  memberships,
+  userEmail,
+  currentOrganization,
+  organizations
+}: AuthenticatedShellProps) {
   const pathname = usePathname();
 
   const context = useMemo(() => {
     if (pathname === "/workspace") {
       return {
         rootLabel: "Workspaces",
-        pageLabel: "Workspace",
+        pageLabel: "Tarefas",
         rootHref: "/workspace"
       };
     }
@@ -48,7 +59,12 @@ export function AuthenticatedShell({ children, memberships, userEmail }: Authent
 
   return (
     <SidebarProvider>
-      <AppSidebar memberships={memberships} userEmail={userEmail} />
+      <AppSidebar
+        memberships={memberships}
+        userEmail={userEmail}
+        currentOrganization={currentOrganization}
+        organizations={organizations}
+      />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-secondary">
           <div className="flex items-center gap-2 px-4">
@@ -67,6 +83,12 @@ export function AuthenticatedShell({ children, memberships, userEmail }: Authent
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
+          </div>
+          <div className="ml-auto flex items-center gap-2 px-4 mr-2">
+            <Link href="/" aria-label="Vokos" className="flex items-center">
+              <LogoIcon size="size-6" />
+            </Link>
+            <ModeToggle />
           </div>
         </header>
         <div className="flex flex-1 flex-col px-4 py-4 md:px-6">{children}</div>

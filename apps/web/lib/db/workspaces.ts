@@ -1,7 +1,9 @@
+import { listMyOrganizationContexts } from "@/lib/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export type WorkspaceMembership = {
   workspace_id: string;
+  organization_id: string;
   role: "admin" | "manager" | "member";
   default_board_id: string | null;
   workspace: {
@@ -9,6 +11,10 @@ export type WorkspaceMembership = {
     slug: string;
   };
 };
+
+function mapOrganizationRole(role: "owner" | "member"): WorkspaceMembership["role"] {
+  return role === "owner" ? "admin" : "member";
+}
 
 export type WorkspaceTaskOverview = {
   workspaceId: string;
@@ -18,6 +24,7 @@ export type WorkspaceTaskOverview = {
     id: string;
     name: string;
     position: number;
+    boardId: string;
     tasks: Array<{
       id: string;
       title: string;
@@ -32,27 +39,32 @@ export type WorkspaceTaskOverview = {
 
 export async function listMyWorkspaceMemberships(): Promise<WorkspaceMembership[]> {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
+  const organizations = await listMyOrganizationContexts();
 
-  if (userError || !user) {
+  if (organizations.length === 0) {
     return [];
   }
 
-  const { data, error } = await supabase
-    .from("workspace_members")
-    .select("workspace_id, role, workspace:workspaces(name, slug)")
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .order("created_at", { ascending: true });
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "Failed to fetch memberships");
+  const roleByOrganization = new Map<string, "owner" | "member">();
+  for (const organization of organizations) {
+    if (!roleByOrganization.has(organization.organizationId)) {
+      roleByOrganization.set(organization.organizationId, organization.role);
+    }
   }
 
-  const workspaceIds = data.map((row) => row.workspace_id);
+  const organizationIds = organizations.map((organization) => organization.organizationId);
+
+  const { data: workspaces, error: workspacesError } = await supabase
+    .from("workspaces")
+    .select("id, organization_id, name, slug")
+    .in("organization_id", organizationIds)
+    .order("created_at", { ascending: true });
+
+  if (workspacesError || !workspaces) {
+    throw new Error(workspacesError?.message ?? "Failed to fetch workspaces");
+  }
+
+  const workspaceIds = workspaces.map((workspace) => workspace.id);
   const { data: boards, error: boardsError } = await supabase
     .from("boards")
     .select("id, workspace_id, is_default")
@@ -68,26 +80,16 @@ export async function listMyWorkspaceMemberships(): Promise<WorkspaceMembership[
     defaultBoardByWorkspace.set(board.workspace_id, board.id);
   }
 
-  const memberships: WorkspaceMembership[] = [];
-
-  for (const row of data) {
-    const workspaceRaw = Array.isArray(row.workspace) ? row.workspace[0] : row.workspace;
-    if (!workspaceRaw) {
-      continue;
-    }
-
-    memberships.push({
-      workspace_id: row.workspace_id,
-      role: row.role,
-      workspace: {
-        name: workspaceRaw.name,
-        slug: workspaceRaw.slug
-      },
-      default_board_id: defaultBoardByWorkspace.get(row.workspace_id) ?? null
-    });
-  }
-
-  return memberships;
+  return workspaces.map((workspace) => ({
+    workspace_id: workspace.id,
+    organization_id: workspace.organization_id,
+    role: mapOrganizationRole(roleByOrganization.get(workspace.organization_id) ?? "member"),
+    workspace: {
+      name: workspace.name,
+      slug: workspace.slug
+    },
+    default_board_id: defaultBoardByWorkspace.get(workspace.id) ?? null
+  }));
 }
 
 export async function listWorkspaceTaskOverview(memberships: WorkspaceMembership[]): Promise<WorkspaceTaskOverview[]> {
@@ -100,7 +102,7 @@ export async function listWorkspaceTaskOverview(memberships: WorkspaceMembership
 
   const { data: lists, error: listsError } = await supabase
     .from("lists")
-    .select("id, workspace_id, name, position")
+    .select("id, workspace_id, board_id, name, position")
     .in("workspace_id", workspaceIds)
     .eq("is_archived", false)
     .order("position", { ascending: true });
@@ -132,6 +134,7 @@ export async function listWorkspaceTaskOverview(memberships: WorkspaceMembership
       id: list.id,
       name: list.name,
       position: list.position,
+      boardId: list.board_id,
       tasks: []
     });
     statusesByWorkspace.set(list.workspace_id, bucket);

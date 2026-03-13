@@ -4,11 +4,11 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { AudioWaveform, BriefcaseBusiness, ChevronDown, FolderKanban, GalleryVerticalEnd, Plus, Users } from "lucide-react";
+import { ChevronDown, FolderKanban, Plus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { createWorkspaceAction, signOutAction } from "@/app/(app)/actions";
+import type { OrganizationContext } from "@/lib/auth";
 import type { WorkspaceMembership } from "@/lib/db/workspaces";
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -17,34 +17,14 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupActio
 import { OrganizationSwitcher } from "./organization-switcher";
 import { NavUser } from "./nav-user";
 
-
-// This is sample data.
-const data = {
-  organizations: [
-    {
-      name: "Faria & Silva Advogados",
-      logo: GalleryVerticalEnd,
-      plan: "Enterprise",
-    },
-    {
-      name: "Nelson Wilians Advogados Associados",
-      logo: AudioWaveform,
-      plan: "Equipe",
-    },
-    {
-      name: "Demarest Advogados",
-      logo: BriefcaseBusiness,
-      plan: "Essencial",
-    },
-  ],
-}
-
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   memberships: WorkspaceMembership[];
   userEmail: string;
+  currentOrganization: OrganizationContext;
+  organizations: OrganizationContext[];
 };
 
-export function AppSidebar({ memberships, userEmail, ...props }: AppSidebarProps) {
+export function AppSidebar({ memberships, userEmail, currentOrganization, organizations, ...props }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -52,6 +32,7 @@ export function AppSidebar({ memberships, userEmail, ...props }: AppSidebarProps
   const [workspacesOpen, setWorkspacesOpen] = useState(true);
   const [pendingCreate, startCreateTransition] = useTransition();
   const [pendingSignout, startSignoutTransition] = useTransition();
+  const visibleMemberships = memberships.filter((membership) => membership.organization_id === currentOrganization.organizationId);
 
   function handleCreateWorkspace() {
     if (newWorkspaceName.trim().length < 3) {
@@ -100,7 +81,7 @@ export function AppSidebar({ memberships, userEmail, ...props }: AppSidebarProps
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-      <OrganizationSwitcher organizations={data.organizations} />
+        <OrganizationSwitcher organizations={organizations} currentOrganizationId={currentOrganization.organizationId} />
       </SidebarHeader>
 
       <SidebarContent>
@@ -157,12 +138,12 @@ export function AppSidebar({ memberships, userEmail, ...props }: AppSidebarProps
                 </SidebarMenuButton>
                 {workspacesOpen ? (
                   <SidebarMenuSub>
-                    {memberships.length === 0 ? (
+                    {visibleMemberships.length === 0 ? (
                       <SidebarMenuSubItem>
                         <span className="px-2 text-xs text-sidebar-foreground/70">Nenhuma workspace criada</span>
                       </SidebarMenuSubItem>
                     ) : (
-                      memberships.map((membership) => {
+                      visibleMemberships.map((membership) => {
                         const href = membership.default_board_id ? `/boards/${membership.default_board_id}` : "/workspace";
                         const isActive =
                           pathname === href ||
@@ -194,30 +175,17 @@ export function AppSidebar({ memberships, userEmail, ...props }: AppSidebarProps
                 <SidebarMenuButton asChild isActive={pathname === "/workspace"}>
                   <Link href="/workspace">
                     <FolderKanban />
-                    <span>Todas as tarefas</span>
+                    <span>Lista de tarefas</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <SidebarMenuButton type="button">
-                      <Users />
-                      <span>Adicionar membro</span>
-                    </SidebarMenuButton>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Fluxo de membros entra no M2</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Nesta fase M1, a tela exibe navegação do workspace e board. O convite de membros será habilitado no M2.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogAction>Entendi</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <SidebarMenuButton asChild isActive={pathname === "/organization/members"}>
+                  <Link href={"/organization/members" as Route}>
+                    <Users />
+                    <span>Membros</span>
+                  </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>

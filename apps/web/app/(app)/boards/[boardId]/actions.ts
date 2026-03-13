@@ -75,7 +75,7 @@ export async function createTaskAction(rawInput: unknown) {
 
   const { data: board } = await supabase
     .from("boards")
-    .select("id, project_id, workspace_id")
+    .select("id, workspace_id")
     .eq("id", input.boardId)
     .maybeSingle();
 
@@ -99,7 +99,6 @@ export async function createTaskAction(rawInput: unknown) {
     .from("tasks")
     .insert({
       workspace_id: board.workspace_id,
-      project_id: board.project_id,
       board_id: input.boardId,
       list_id: input.listId,
       title: input.title,

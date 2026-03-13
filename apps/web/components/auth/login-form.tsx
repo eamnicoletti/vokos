@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import type { ComponentProps, FormEvent } from "react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -18,6 +19,8 @@ type AuthMode = "login" | "signup";
 
 type LoginFormProps = ComponentProps<"div"> & {
   mode?: AuthMode;
+  nextPath?: string;
+  initialEmail?: string;
 };
 
 type PasswordRules = {
@@ -38,10 +41,19 @@ function evaluatePasswordStrength(password: string): PasswordRules {
   };
 }
 
-export function LoginForm({ className, mode = "login", ...props }: LoginFormProps) {
+function safeNextPath(value?: string): string {
+  if (!value || !value.startsWith("/")) {
+    return "/dashboard";
+  }
+
+  return value;
+}
+
+export function LoginForm({ className, mode = "login", nextPath, initialEmail, ...props }: LoginFormProps) {
   const router = useRouter();
   const isSignup = mode === "signup";
-  const [email, setEmail] = useState("");
+  const safeNext = safeNextPath(nextPath);
+  const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
@@ -73,7 +85,7 @@ export function LoginForm({ className, mode = "login", ...props }: LoginFormProp
         return;
       }
 
-      const callbackUrl = `${window.location.origin}/auth/callback?next=/dashboard`;
+      const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`;
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -90,7 +102,7 @@ export function LoginForm({ className, mode = "login", ...props }: LoginFormProp
 
       if (data.session) {
         toast.success("Conta criada com sucesso.");
-        router.replace("/dashboard");
+        router.replace(safeNext as Route);
       } else {
         toast.success("Conta criada. Verifique seu e-mail para confirmar o cadastro.");
         router.replace("/login");
@@ -110,7 +122,7 @@ export function LoginForm({ className, mode = "login", ...props }: LoginFormProp
     }
 
     toast.success("Login realizado com sucesso.");
-    router.replace("/dashboard");
+    router.replace(safeNext as Route);
     router.refresh();
     setPending(false);
   }
@@ -248,18 +260,22 @@ export function LoginForm({ className, mode = "login", ...props }: LoginFormProp
                 className="w-full"
                 onClick={() => toast.info("Login com Google em modo mock por enquanto.")}
               >
-                <svg className="mr-2 size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden>
-                  <path
-                    d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
-                    fill="currentColor"
-                  />
-                </svg>
+                <img src="https://img.icons8.com/color/48/google-logo.png" alt="google-logo" className="mr-2 size-5" />
                 Continuar com Google
               </Button>
 
               <div className="text-center text-sm">
                 {isSignup ? "Já tem conta?" : "Não tem conta?"}{" "}
-                <Link href={isSignup ? "/login" : "/signup"} className="underline underline-offset-4">
+                <Link
+                  href={{
+                    pathname: isSignup ? "/login" : "/signup",
+                    query: {
+                      next: safeNext,
+                      ...(email ? { email } : {})
+                    }
+                  }}
+                  className="underline underline-offset-4"
+                >
                   {isSignup ? "Entrar" : "Cadastre-se"}
                 </Link>
               </div>

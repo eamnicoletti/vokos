@@ -2,9 +2,15 @@ import { CalendarClock, FolderKanban } from "lucide-react";
 import { listMyWorkspaceMemberships, listWorkspaceTaskOverview } from "@/lib/db/workspaces";
 import { WorkspaceTaskPanel } from "@/features/workspaces/workspace-task-panel";
 import { WorkspaceBootstrap } from "@/features/workspaces/workspace-bootstrap";
+import { MembershipWelcomeDialog } from "@/features/organization/membership-welcome-dialog";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default async function WorkspacePage() {
+export default async function WorkspacePage({
+  searchParams
+}: {
+  searchParams: Promise<{ welcomeOrganization?: string; boardId?: string }>;
+}) {
+  const { welcomeOrganization, boardId } = await searchParams;
   const memberships = await listMyWorkspaceMemberships();
   const hasWorkspaces = memberships.length > 0;
 
@@ -20,6 +26,9 @@ export default async function WorkspacePage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-6">
+      {welcomeOrganization ? (
+        <MembershipWelcomeDialog organizationName={welcomeOrganization} boardId={boardId} />
+      ) : null}
       <WorkspaceTaskPanel overview={overview} />
     </main>
   );

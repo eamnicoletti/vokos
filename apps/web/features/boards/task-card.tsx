@@ -23,6 +23,7 @@ type TaskCardProps = {
   completedListId: string | null;
   listOptions: Array<{ id: string; name: string }>;
   mutationPending: boolean;
+  isDragging?: boolean;
   onMove: (taskId: string, targetListId: string) => void;
   onUpdateTask: (taskId: string, patch: { title?: string; description?: string; dueDate?: string | null; priority?: TaskPriority }) => void;
   onAddComment: (taskId: string, body: string) => void;
@@ -83,6 +84,7 @@ export function TaskCard({
   completedListId,
   listOptions,
   mutationPending,
+  isDragging,
   onMove,
   onUpdateTask,
   onAddComment,
@@ -149,7 +151,8 @@ export function TaskCard({
     <TooltipProvider delayDuration={150}>
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
         <Card
-          className="border-border shadow-sm transition-colors hover:border-primary/40"
+          data-task-id={task.id}
+          className={`border-border shadow-sm transition-colors hover:border-primary/40 ${isDragging ? "opacity-30" : ""}`}
           draggable
           onDragStart={(event) => onDragStart(event, task.id)}
           onDragEnd={onDragEnd}

@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { BoardSnapshot } from "@/lib/db/boards";
-import { addTaskCommentAction, createTaskAction, moveTaskAction, updateListNameAction, updateTaskAction } from "@/app/(app)/boards/[boardId]/actions";
+import { addTaskCommentAction, moveTaskAction, updateListNameAction, updateTaskAction } from "@/app/(app)/boards/[boardId]/actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -14,71 +14,38 @@ type BoardViewProps = {
   snapshot: BoardSnapshot;
 };
 
+type TaskType = BoardSnapshot["lists"][number]["tasks"][number];
+
 export function BoardView({ snapshot }: BoardViewProps) {
   const router = useRouter();
-  const [createPending, setCreatePending] = useState(false);
   const [mutationPending, setMutationPending] = useState(false);
+
+  const [optimisticLists, setOptimisticLists] = useState(snapshot.lists);
+  useEffect(() => {
+    setOptimisticLists(snapshot.lists);
+  }, [snapshot.lists]);
 
   const [dragTaskId, setDragTaskId] = useState<string | null>(null);
   const [dragSourceListId, setDragSourceListId] = useState<string | null>(null);
   const [dropTargetListId, setDropTargetListId] = useState<string | null>(null);
+  const [dropInsertIndex, setDropInsertIndex] = useState<number | null>(null);
 
   const [collapsedLists, setCollapsedLists] = useState<Record<string, boolean>>({});
-
-  const [addTaskListId, setAddTaskListId] = useState<string | null>(null);
-  const [addTaskTitle, setAddTaskTitle] = useState("");
-  const [addTaskDescription, setAddTaskDescription] = useState("");
 
   const [renameListId, setRenameListId] = useState<string | null>(null);
   const [renameListName, setRenameListName] = useState("");
 
-  const listOptions = useMemo(() => snapshot.lists.map((list) => ({ id: list.id, name: list.name })), [snapshot.lists]);
+  const draggedTaskRef = useRef<TaskType | null>(null);
+
+  const listOptions = useMemo(() => optimisticLists.map((list) => ({ id: list.id, name: list.name })), [optimisticLists]);
   const completedListId = useMemo(
     () =>
-      snapshot.lists.find((list) => {
+      optimisticLists.find((list) => {
         const name = list.name.trim().toLowerCase();
         return name === "concluido" || name === "concluído";
       })?.id ?? null,
-    [snapshot.lists]
+    [optimisticLists]
   );
-
-  function handleOpenAddTask(listId: string) {
-    setAddTaskListId(listId);
-    setAddTaskTitle("");
-    setAddTaskDescription("");
-  }
-
-  function handleAddTaskToList() {
-    if (!addTaskListId || addTaskTitle.trim().length < 3 || createPending) {
-      return;
-    }
-
-    setCreatePending(true);
-    const request = createTaskAction({
-      boardId: snapshot.id,
-      listId: addTaskListId,
-      title: addTaskTitle.trim(),
-      description: addTaskDescription.trim() || undefined
-    });
-
-    toast.promise(request, {
-      loading: "Criando tarefa...",
-      success: "Tarefa criada.",
-      error: (error) => (error instanceof Error ? error.message : "Falha ao criar tarefa")
-    });
-
-    void request
-      .then(() => {
-        setAddTaskListId(null);
-        setAddTaskTitle("");
-        setAddTaskDescription("");
-        router.refresh();
-      })
-      .catch(() => {
-        // Error feedback handled by toast.
-      })
-      .finally(() => setCreatePending(false));
-  }
 
   function handleToggleList(listId: string) {
     setCollapsedLists((prev) => ({ ...prev, [listId]: !prev[listId] }));
@@ -113,42 +80,59 @@ export function BoardView({ snapshot }: BoardViewProps) {
         setRenameListName("");
         router.refresh();
       })
-      .catch(() => {
-        // Error feedback handled by toast.
-      })
+      .catch(() => {})
       .finally(() => setMutationPending(false));
   }
 
-  function handleMove(taskId: string, targetListId: string) {
-    if (mutationPending) {
-      return;
-    }
+  const applyOptimisticMove = useCallback(
+    (taskId: string, sourceListId: string, targetListId: string, insertIndex?: number) => {
+      setOptimisticLists((prev) => {
+        const sourceList = prev.find((l) => l.id === sourceListId);
+        if (!sourceList) return prev;
+        const task = sourceList.tasks.find((t) => t.id === taskId);
+        if (!task) return prev;
 
-    const currentList = snapshot.lists.find((list) => list.tasks.some((task) => task.id === taskId));
+        return prev.map((list) => {
+          if (list.id === sourceListId && list.id === targetListId) {
+            const without = list.tasks.filter((t) => t.id !== taskId);
+            const idx = insertIndex != null ? Math.min(insertIndex, without.length) : without.length;
+            const reordered = [...without.slice(0, idx), task, ...without.slice(idx)];
+            return { ...list, tasks: reordered };
+          }
+          if (list.id === sourceListId) {
+            return { ...list, tasks: list.tasks.filter((t) => t.id !== taskId) };
+          }
+          if (list.id === targetListId) {
+            const idx = insertIndex != null ? Math.min(insertIndex, list.tasks.length) : list.tasks.length;
+            const updated = [...list.tasks.slice(0, idx), task, ...list.tasks.slice(idx)];
+            return { ...list, tasks: updated };
+          }
+          return list;
+        });
+      });
+    },
+    []
+  );
+
+  function handleMove(taskId: string, targetListId: string) {
+    const currentList = optimisticLists.find((list) => list.tasks.some((task) => task.id === taskId));
     if (!currentList || currentList.id === targetListId) {
       return;
     }
 
-    setMutationPending(true);
-    const request = moveTaskAction({
+    applyOptimisticMove(taskId, currentList.id, targetListId);
+
+    void moveTaskAction({
       boardId: snapshot.id,
       taskId,
       targetListId,
       position: Date.now()
-    });
-
-    toast.promise(request, {
-      loading: "Movendo tarefa...",
-      success: "Tarefa movida.",
-      error: (error) => (error instanceof Error ? error.message : "Falha ao mover tarefa")
-    });
-
-    void request
+    })
       .then(() => router.refresh())
       .catch(() => {
-        // Error feedback handled by toast.
-      })
-      .finally(() => setMutationPending(false));
+        setOptimisticLists(snapshot.lists);
+        toast.error("Falha ao mover tarefa. Revertendo.");
+      });
   }
 
   function handleUpdateTask(
@@ -177,9 +161,7 @@ export function BoardView({ snapshot }: BoardViewProps) {
 
     void request
       .then(() => router.refresh())
-      .catch(() => {
-        // Error feedback handled by toast.
-      })
+      .catch(() => {})
       .finally(() => setMutationPending(false));
   }
 
@@ -203,9 +185,7 @@ export function BoardView({ snapshot }: BoardViewProps) {
 
     void request
       .then(() => router.refresh())
-      .catch(() => {
-        // Error feedback handled by toast.
-      })
+      .catch(() => {})
       .finally(() => setMutationPending(false));
   }
 
@@ -214,66 +194,85 @@ export function BoardView({ snapshot }: BoardViewProps) {
     event.dataTransfer.effectAllowed = "move";
     setDragTaskId(taskId);
     setDragSourceListId(listId);
+
+    const sourceList = optimisticLists.find((l) => l.id === listId);
+    draggedTaskRef.current = sourceList?.tasks.find((t) => t.id === taskId) ?? null;
   }
 
   function handleDragEnd() {
     setDragTaskId(null);
     setDragSourceListId(null);
     setDropTargetListId(null);
+    setDropInsertIndex(null);
+    draggedTaskRef.current = null;
+  }
+
+  function handleDragOverList(listId: string, event: React.DragEvent<HTMLDivElement>, insertIndex: number | null) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDropTargetListId(listId);
+    setDropInsertIndex(insertIndex);
   }
 
   function handleDrop(listId: string, event: React.DragEvent<HTMLDivElement>) {
     event.preventDefault();
     const taskId = event.dataTransfer.getData("text/task-id") || dragTaskId;
-    setDropTargetListId(null);
-    setDragTaskId(null);
     const sourceListId = dragSourceListId;
-    setDragSourceListId(null);
+    const insertIdx = dropInsertIndex;
 
-    if (!taskId || sourceListId === listId) {
+    setDropTargetListId(null);
+    setDropInsertIndex(null);
+    setDragTaskId(null);
+    setDragSourceListId(null);
+    draggedTaskRef.current = null;
+
+    if (!taskId || !sourceListId) return;
+
+    if (sourceListId === listId) {
+      applyOptimisticMove(taskId, sourceListId, listId, insertIdx ?? undefined);
       return;
     }
-    handleMove(taskId, listId);
+
+    applyOptimisticMove(taskId, sourceListId, listId, insertIdx ?? undefined);
+
+    void moveTaskAction({
+      boardId: snapshot.id,
+      taskId,
+      targetListId: listId,
+      position: Date.now()
+    })
+      .then(() => router.refresh())
+      .catch(() => {
+        setOptimisticLists(snapshot.lists);
+        toast.error("Falha ao mover tarefa. Revertendo.");
+      });
   }
 
   return (
     <main className="mx-auto w-full max-w-[1400px] space-y-6">
       <section className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {snapshot.lists.map((list) => {
+        {optimisticLists.map((list) => {
           const isDropTarget = dropTargetListId === list.id;
           const isCollapsed = collapsedLists[list.id];
 
           return (
             <ListCard
               key={list.id}
+              boardId={snapshot.id}
               list={list}
               listOptions={listOptions}
               completedListId={completedListId}
               isDropTarget={isDropTarget}
               isCollapsed={isCollapsed}
-              createPending={createPending}
               mutationPending={mutationPending}
-              addTaskListId={addTaskListId}
-              addTaskTitle={addTaskTitle}
-              addTaskDescription={addTaskDescription}
+              dragTaskId={dragTaskId}
+              dropInsertIndex={isDropTarget ? dropInsertIndex : null}
               onToggleList={handleToggleList}
-              onOpenAddTask={handleOpenAddTask}
-              onCloseAddTask={() => {
-                setAddTaskListId(null);
-                setAddTaskTitle("");
-                setAddTaskDescription("");
-              }}
-              onAddTaskTitleChange={setAddTaskTitle}
-              onAddTaskDescriptionChange={setAddTaskDescription}
-              onSubmitAddTask={handleAddTaskToList}
               onOpenRenameList={handleOpenRenameList}
               onMoveTask={handleMove}
               onUpdateTask={handleUpdateTask}
               onAddComment={handleAddComment}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setDropTargetListId(list.id);
-              }}
+              onDragOver={(event, insertIndex) => handleDragOverList(list.id, event, insertIndex)}
               onDragLeave={() => setDropTargetListId((current) => (current === list.id ? null : current))}
               onDrop={(event) => handleDrop(list.id, event)}
               onTaskDragStart={handleDragStart}
