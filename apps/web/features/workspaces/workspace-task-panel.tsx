@@ -4,13 +4,14 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown, Calendar, Flag, SquareArrowOutUpRight } from "lucide-react";
 import type { WorkspaceTaskOverview } from "@/lib/db/workspaces";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AddTaskDialog } from "@/features/boards/add-task-dialog";
 import { Card } from "@/components/ui/card";
+import { getUserInitials } from "@/lib/user-profile";
 
 type ColField = "title" | "assignee" | "date" | "priority" | "tag";
 type SortDirection = "asc" | "desc";
@@ -74,19 +75,14 @@ function dueDateLabel(value: string | null) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(value));
 }
 
-function assigneeFallback(assigneeUserId: string | null) {
-  if (!assigneeUserId) return "--";
-  return assigneeUserId.replace(/-/g, "").slice(0, 2).toUpperCase();
-}
-
 function sortTasks(tasks: WorkspaceTask[], sort: StatusSort): WorkspaceTask[] {
   const dir = sort.direction === "asc" ? 1 : -1;
   return [...tasks].sort((a, b) => {
     if (sort.field === "title")
       return a.title.localeCompare(b.title, "pt-BR") * dir;
     if (sort.field === "assignee") {
-      const av = a.assigneeUserId ?? "";
-      const bv = b.assigneeUserId ?? "";
+      const av = a.assignee?.name ?? a.assignee?.email ?? "";
+      const bv = b.assignee?.name ?? b.assignee?.email ?? "";
       return av.localeCompare(bv) * dir;
     }
     if (sort.field === "date") {
@@ -261,13 +257,21 @@ export function WorkspaceTaskPanel({ overview }: WorkspaceTaskPanelProps) {
                                   <span className="truncate font-medium">{task.title}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-muted-foreground">
-                                  <Avatar className="size-6">
-                                    <AvatarFallback className="text-[10px]">
-                                      {assigneeFallback(task.assigneeUserId)}
-                                    </AvatarFallback>
-                                  </Avatar>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-flex">
+                                        <Avatar className="size-6">
+                                          <AvatarImage src={task.assignee?.avatarUrl ?? undefined} alt={task.assignee?.name ?? "Sem responsável"} />
+                                          <AvatarFallback className="text-[10px]">
+                                            {getUserInitials(task.assignee?.name ?? null, task.assignee?.email ?? null, "SR")}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{task.assignee?.name ?? "Sem responsável"}</TooltipContent>
+                                  </Tooltip>
                                   <span className="truncate text-xs">
-                                    {task.assigneeUserId ? "Responsável" : "Sem responsável"}
+                                    {task.assignee?.name ?? "Sem responsável"}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">

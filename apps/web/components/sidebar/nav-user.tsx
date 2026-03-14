@@ -15,6 +15,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@/components/ui/avatar"
+import { getUserInitials } from "@/lib/user-profile"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,12 +57,7 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const [logoutOpen, setLogoutOpen] = useState(false)
-  const initials = user.name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "VK"
+  const initials = getUserInitials(user.name, user.email)
 
   return (
     <SidebarMenu>
@@ -103,9 +99,11 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck />
-                Minha conta
+              <DropdownMenuItem asChild>
+                <Link href={{ pathname: "/conta/profile" }}>
+                  <BadgeCheck />
+                  Perfil
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href={{ pathname: "/conta/cobrancas" }}>

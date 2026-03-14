@@ -14,6 +14,7 @@ import {
   revokeOrganizationInvitationAction
 } from "@/app/(app)/organization/members/actions";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { getUserInitials } from "@/lib/user-profile";
 
 type OrganizationMembersPanelProps = {
   organization: OrganizationContext;
@@ -316,9 +318,15 @@ export function OrganizationMembersPanel({
               ) : (
                 activeMembers.map((member) => (
                   <div key={member.userId} className="flex items-center justify-between gap-3 rounded-xl border p-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{member.fullName || member.email}</p>
-                      <p className="truncate text-sm text-muted-foreground">{member.email}</p>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar className="size-10">
+                        <AvatarImage src={member.avatarUrl ?? undefined} alt={member.fullName || member.email} />
+                        <AvatarFallback>{getUserInitials(member.fullName, member.email)}</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{member.fullName || member.email}</p>
+                        <p className="truncate text-sm text-muted-foreground">{member.email}</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className={cn("rounded-full", member.role === "owner" ? "bg-blue-500/10 text-blue-700" : "")}>

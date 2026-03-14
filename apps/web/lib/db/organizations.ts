@@ -9,6 +9,7 @@ export type OrganizationMemberRecord = {
   userId: string;
   email: string;
   fullName: string;
+  avatarUrl: string | null;
   role: "owner" | "member";
   isActive: boolean;
   invitedByUserId: string | null;
@@ -335,6 +336,7 @@ export async function listOrganizationMembers(organizationId: string): Promise<O
     userId: row.user_id,
     email: row.email,
     fullName: row.full_name,
+    avatarUrl: typeof row.avatar_url === "string" ? row.avatar_url : null,
     role: row.role,
     isActive: row.is_active,
     invitedByUserId: row.invited_by_user_id,

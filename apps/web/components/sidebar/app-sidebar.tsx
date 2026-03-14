@@ -10,6 +10,7 @@ import { createWorkspaceAction, signOutAction } from "@/app/(app)/actions";
 import type { OrganizationContext } from "@/lib/auth";
 import type { OrganizationWorkspaceStatus } from "@/lib/db/organizations";
 import type { WorkspaceMembership } from "@/lib/db/workspaces";
+import type { UserProfileSummary } from "@/lib/user-profile";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -22,13 +23,13 @@ import { Badge } from "../ui/badge";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   memberships: WorkspaceMembership[];
-  userEmail: string;
+  currentUser: UserProfileSummary;
   currentOrganization: OrganizationContext;
   organizations: OrganizationContext[];
   workspaceStatus: OrganizationWorkspaceStatus;
 };
 
-export function AppSidebar({ memberships, userEmail, currentOrganization, organizations, workspaceStatus, ...props }: AppSidebarProps) {
+export function AppSidebar({ memberships, currentUser, currentOrganization, organizations, workspaceStatus, ...props }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -291,9 +292,9 @@ export function AppSidebar({ memberships, userEmail, currentOrganization, organi
       <SidebarFooter>
         <NavUser
           user={{
-            name: userEmail?.split("@")[0]?.replace(/[._-]+/g, " ")?.trim() || "Usuário Vokos",
-            email: userEmail || "usuario@vokos.ai",
-            avatar: "",
+            name: currentUser.name,
+            email: currentUser.email || "usuario@vokos.ai",
+            avatar: currentUser.avatarUrl ?? "",
           }}
           loggingOut={pendingSignout}
           onLogout={handleSignOut}

@@ -1,6 +1,8 @@
 import { cache } from "react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getUserProfilesByIds } from "@/lib/server/user-profiles";
 import { requireAuthContext } from "@/lib/auth";
+import type { UserProfileSummary } from "@/lib/user-profile";
 
 export type BoardSnapshot = {
   id: string;
@@ -22,6 +24,7 @@ export type BoardSnapshot = {
       priority: "low" | "medium" | "high" | "urgent" | null;
       source_type: "manual" | "email" | "dje" | "portal";
       assignee_user_id: string | null;
+      assignee: UserProfileSummary | null;
       edited_count: number;
     }>;
   }>;
@@ -64,6 +67,8 @@ export const getBoardSnapshot = cache(async (boardId: string): Promise<BoardSnap
     throw new Error(tasksError.message);
   }
 
+  const assigneeProfiles = await getUserProfilesByIds((tasks ?? []).map((task) => task.assignee_user_id));
+
   const byList = new Map<string, BoardSnapshot["lists"][number]["tasks"]>();
   for (const list of lists) {
     byList.set(list.id, []);
@@ -80,6 +85,7 @@ export const getBoardSnapshot = cache(async (boardId: string): Promise<BoardSnap
         priority: task.priority,
         source_type: task.source_type,
         assignee_user_id: task.assignee_user_id,
+        assignee: task.assignee_user_id ? assigneeProfiles.get(task.assignee_user_id) ?? null : null,
         edited_count: task.edited_count
       });
     }

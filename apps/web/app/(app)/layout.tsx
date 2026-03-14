@@ -4,6 +4,7 @@ import { AuthenticatedShell } from "@/components/auth/authenticated-shell";
 import { getCurrentOrganization, getOrganizationWorkspaceStatus, listMyOrganizations } from "@/lib/db/organizations";
 import { listMyWorkspaceMemberships } from "@/lib/db/workspaces";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { profileFromAuthUser } from "@/lib/user-profile";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createServerSupabaseClient();
@@ -15,6 +16,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (error || !user) {
     redirect("/login");
   }
+
+  const currentUser = profileFromAuthUser(user);
 
   const [organization, organizations, memberships] = await Promise.all([
     getCurrentOrganization(),
@@ -31,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <AuthenticatedShell
       memberships={memberships}
-      userEmail={user.email ?? ""}
+      currentUser={currentUser}
       currentOrganization={organization}
       organizations={organizations}
       workspaceStatus={workspaceStatus}

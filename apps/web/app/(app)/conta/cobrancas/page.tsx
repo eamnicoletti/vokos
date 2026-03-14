@@ -1,7 +1,9 @@
 import { getMyAccountBillingOverview } from "@/lib/db/billing";
+import { requirePageSession } from "@/lib/server/require-page-session";
 import { AccountBillingPanel } from "@/features/billing/account-billing-panel";
 
 export default async function AccountBillingPage() {
+  await requirePageSession("/conta/cobrancas");
   const overview = await getMyAccountBillingOverview();
 
   return (

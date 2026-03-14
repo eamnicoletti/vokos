@@ -64,6 +64,14 @@ function getFriendlyErrorMessage(message: string) {
   return "Ocorreu um erro ao processar sua solicitação. Tente novamente.";
 }
 
+function getOAuthCallbackUrl(nextPath: string, mode: AuthMode) {
+  const callbackUrl = new URL("/auth/callback", window.location.origin);
+  callbackUrl.searchParams.set("next", nextPath);
+  callbackUrl.searchParams.set("mode", mode);
+
+  return callbackUrl.toString();
+}
+
 export function LoginForm({
   className,
   mode = "login",
@@ -88,6 +96,23 @@ export function LoginForm({
   const hasConfirmPassword = confirmPassword.length > 0;
   const isSignupSubmitDisabled = !isStrongPassword || !hasConfirmPassword || !passwordsMatch;
   const showPasswordRules = isSignup && isPasswordFocused && password.length > 0;
+
+  async function handleGoogleAuth() {
+    setPending(true);
+    const supabase = createBrowserSupabaseClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: getOAuthCallbackUrl(safeNext, mode),
+        scopes: "openid email profile"
+      }
+    });
+
+    if (error) {
+      toast.error(getFriendlyErrorMessage(error.message));
+      setPending(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -147,7 +172,7 @@ export function LoginForm({
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      toast.error(error.message);
+      toast.error(getFriendlyErrorMessage(error.message));
       setPending(false);
       return;
     }
@@ -295,17 +320,24 @@ export function LoginForm({
                 type="button"
                 variant="outline"
                 className="w-full"
-                onClick={() => toast.info("Login com Google em modo mock por enquanto.")}
+                disabled={pending}
+                onClick={() => {
+                  void handleGoogleAuth();
+                }}
               >
                 <img src="https://img.icons8.com/color/48/google-logo.png" alt="google-logo" className="mr-2 size-5" />
-                Continuar com Google
+                {pending ? "Redirecionando..." : isSignup ? "Cadastrar com Google" : "Entrar com Google"}
               </Button>
+
+              <p className="text-center text-xs text-muted-foreground">
+                Ao continuar com Google, poderemos solicitar acesso ao seu nome e foto para completar seu perfil.
+              </p>
 
               <div className="text-center text-sm">
                 {isSignup ? "Já tem conta?" : "Não tem conta?"}{" "}
                 <Link
                   href={{
-                    pathname: isSignup ? "/login" : "/signup",
+                    pathname: isSignup ? "/login" : "/cadastro",
                     query: {
                       next: safeNext,
                       ...(email ? { email } : {}),

@@ -6,9 +6,11 @@ import {
   listOrganizationInvitations,
   listOrganizationMembers
 } from "@/lib/db/organizations";
+import { requirePageSession } from "@/lib/server/require-page-session";
 import { OrganizationMembersPanel } from "@/features/organization/organization-members-panel";
 
 export default async function OrganizationMembersPage() {
+  await requirePageSession("/organization/members");
   const organization = await getCurrentOrganization();
 
   if (!organization) {

@@ -1,6 +1,7 @@
 import { CalendarClock, FolderKanban } from "lucide-react";
 import { getCurrentOrganization, getOrganizationWorkspaceStatus } from "@/lib/db/organizations";
 import { listMyWorkspaceMemberships, listWorkspaceTaskOverview } from "@/lib/db/workspaces";
+import { requirePageSession } from "@/lib/server/require-page-session";
 import { WorkspaceTaskPanel } from "@/features/workspaces/workspace-task-panel";
 import { WorkspaceBootstrap } from "@/features/workspaces/workspace-bootstrap";
 import { MembershipWelcomeDialog } from "@/features/organization/membership-welcome-dialog";
@@ -11,6 +12,7 @@ export default async function WorkspacePage({
 }: {
   searchParams: Promise<{ welcomeOrganization?: string; boardId?: string }>;
 }) {
+  await requirePageSession("/workspace");
   const { welcomeOrganization, boardId } = await searchParams;
   const memberships = await listMyWorkspaceMemberships();
   const hasWorkspaces = memberships.length > 0;

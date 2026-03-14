@@ -28,7 +28,8 @@ Checklist:
 - [x] Initialize Next.js App Router app with TypeScript, TailwindCSS, shadcn/ui, Outfit.
 - [x] Configure Supabase Auth integration in web app.
 - [x] Implement workspace creation flow.
-- [ ] Implement workspace membership flow (`admin`, `manager`, `member`).
+- [x] Implement organization membership and invitation flow (`owner`, `member`) with active organization context.
+- [ ] Implement intermediate permission layer for organization/workspace management (`manager`), including authorization rules and UI exposure.
 - [x] Implement domain tables: workspaces, workspace_members, projects, boards, lists, tasks, task_comments, audit_events.
 - [x] Enable RLS on tenant tables with workspace membership policy baseline.
 - [x] Enforce `workspace_id` scoping in all reads/writes.
@@ -55,7 +56,7 @@ Engineering checks:
 - [ ] Add integration test for cross-workspace access denial.
 
 M1 Gate (Go/No-Go):
-- [ ] User can create workspace and invite members.
+- [x] User can create workspace and invite members.
 - [x] User can create/edit/move tasks in a board.
 - [ ] Audit events are visible on task detail.
 - [ ] Cross-workspace access is blocked and tested.
@@ -112,10 +113,10 @@ Goal:
 - Make MVP commercially and operationally ready.
 
 Checklist:
-- [ ] Implement billing tables: billing_customers, billing_subscriptions, billing_events.
-- [ ] Implement Stripe webhook endpoint with signature verification.
-- [ ] Implement webhook idempotency using `stripe_event_id`.
-- [ ] Sync subscription state to local billing tables.
+- [x] Implement billing tables: billing_customers, billing_subscriptions, billing_events.
+- [x] Implement Stripe webhook endpoint with signature verification.
+- [x] Implement webhook idempotency using `stripe_event_id`.
+- [x] Sync subscription state to local billing tables.
 - [ ] Enforce plan limits in backend (active seats + monthly events).
 - [ ] Implement clear user-facing errors for limit violations.
 - [ ] Add structured JSON logging in web and AI server.

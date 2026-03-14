@@ -14,10 +14,11 @@ import { LogoIcon } from "@/components/logo";
 import type { OrganizationContext } from "@/lib/auth";
 import type { OrganizationWorkspaceStatus } from "@/lib/db/organizations";
 import type { WorkspaceMembership } from "@/lib/db/workspaces";
+import type { UserProfileSummary } from "@/lib/user-profile";
 
 type AuthenticatedShellProps = PropsWithChildren<{
   memberships: WorkspaceMembership[];
-  userEmail: string;
+  currentUser: UserProfileSummary;
   currentOrganization: OrganizationContext;
   organizations: OrganizationContext[];
   workspaceStatus: OrganizationWorkspaceStatus;
@@ -26,7 +27,7 @@ type AuthenticatedShellProps = PropsWithChildren<{
 export function AuthenticatedShell({
   children,
   memberships,
-  userEmail,
+  currentUser,
   currentOrganization,
   organizations,
   workspaceStatus
@@ -66,6 +67,14 @@ export function AuthenticatedShell({
       };
     }
 
+    if (pathname === "/conta/profile") {
+      return {
+        rootLabel: "Minha conta",
+        pageLabel: "Perfil",
+        rootHref: "/conta/profile"
+      };
+    }
+
 
     const boardMatch = pathname.match(/^\/boards\/([0-9a-f-]+)$/i);
     if (boardMatch) {
@@ -89,7 +98,7 @@ export function AuthenticatedShell({
     <SidebarProvider>
       <AppSidebar
         memberships={memberships}
-        userEmail={userEmail}
+        currentUser={currentUser}
         currentOrganization={currentOrganization}
         organizations={organizations}
         workspaceStatus={workspaceStatus}

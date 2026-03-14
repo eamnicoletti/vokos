@@ -1,5 +1,7 @@
 import { listMyOrganizationContexts } from "@/lib/auth";
+import { getUserProfilesByIds } from "@/lib/server/user-profiles";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { UserProfileSummary } from "@/lib/user-profile";
 
 export type WorkspaceMembership = {
   workspace_id: string;
@@ -32,6 +34,7 @@ export type WorkspaceTaskOverview = {
       priority: "low" | "medium" | "high" | "urgent" | null;
       sourceType: "manual" | "email" | "dje" | "portal";
       assigneeUserId: string | null;
+      assignee: UserProfileSummary | null;
       boardId: string;
     }>;
   }>;
@@ -123,6 +126,8 @@ export async function listWorkspaceTaskOverview(memberships: WorkspaceMembership
     throw new Error(tasksError.message);
   }
 
+  const assigneeProfiles = await getUserProfilesByIds((tasks ?? []).map((task) => task.assignee_user_id));
+
   const statusesByWorkspace = new Map<
     string,
     WorkspaceTaskOverview["statuses"]
@@ -160,6 +165,7 @@ export async function listWorkspaceTaskOverview(memberships: WorkspaceMembership
       priority: task.priority,
       sourceType: task.source_type,
       assigneeUserId: task.assignee_user_id,
+      assignee: task.assignee_user_id ? assigneeProfiles.get(task.assignee_user_id) ?? null : null,
       boardId: task.board_id
     });
   }

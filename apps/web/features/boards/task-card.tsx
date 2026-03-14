@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { CalendarIcon, Check, CirclePlus, Flag, MoreHorizontal, Paperclip, Pencil, SquarePen, Tag, UserPlus, Users, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import type { BoardSnapshot } from "@/lib/db/boards";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { getUserInitials } from "@/lib/user-profile";
 
 type Task = BoardSnapshot["lists"][number]["tasks"][number];
 type TaskPriority = Task["priority"];
@@ -99,7 +100,6 @@ export function TaskCard({
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
   const [tag, setTag] = useState<string>(task.source_type);
   const [commentDraft, setCommentDraft] = useState("");
-  const [assignees, setAssignees] = useState<string[]>(["Membro"]);
 
   useEffect(() => {
     setInlineTitle(task.title);
@@ -111,6 +111,9 @@ export function TaskCard({
 
   const priorityView = useMemo(() => findPriorityLabel(priority), [priority]);
   const isCompleted = completedListId === currentListId;
+  const assigneeName = task.assignee?.name ?? null;
+  const assigneeEmail = task.assignee?.email ?? null;
+  const assigneeInitials = getUserInitials(assigneeName, assigneeEmail, "SR");
 
   function stopAndRun(event: React.MouseEvent<HTMLButtonElement>, callback: () => void) {
     event.preventDefault();
@@ -221,9 +224,20 @@ export function TaskCard({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Avatar className="size-8">
-                <AvatarFallback className="text-[10px]">RM</AvatarFallback>
-              </Avatar>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="inline-flex"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <Avatar className="size-8">
+                      <AvatarImage src={task.assignee?.avatarUrl ?? undefined} alt={assigneeName ?? "Sem responsável"} />
+                      <AvatarFallback className="text-[10px]">{assigneeInitials}</AvatarFallback>
+                    </Avatar>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{assigneeName ?? "Sem responsável"}</TooltipContent>
+              </Tooltip>
 
               <Popover>
                 <PopoverTrigger asChild>
@@ -330,26 +344,26 @@ export function TaskCard({
               />
             </div>
 
-            <div className="space-y-4">
-              <p className="text-sm font-medium">Assignees</p>
-              <div className="flex items-center gap-2">
-                {assignees.map((member, index) => (
-                  <Avatar key={`${member}-${index}`} className="size-7">
-                    <AvatarFallback className="text-[10px]">{member.slice(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
-                ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // TODO(M1 DB): support multi-assignee relation table for tasks.
-                    setAssignees((prev) => [...prev, `M${prev.length + 1}`]);
-                  }}
-                >
-                  <UserPlus className="mr-1 size-4" />
-                  Add member
-                </Button>
-              </div>
+	            <div className="space-y-4">
+	              <p className="text-sm font-medium">Responsável</p>
+	              <div className="flex items-center gap-2">
+	                <Avatar className="size-8">
+	                  <AvatarImage src={task.assignee?.avatarUrl ?? undefined} alt={assigneeName ?? "Sem responsável"} />
+	                  <AvatarFallback className="text-[10px]">{assigneeInitials}</AvatarFallback>
+	                </Avatar>
+	                <div className="min-w-0">
+	                  <p className="text-sm font-medium">{assigneeName ?? "Sem responsável"}</p>
+	                  {assigneeEmail ? <p className="truncate text-xs text-muted-foreground">{assigneeEmail}</p> : null}
+	                </div>
+	                <Button
+	                  variant="outline"
+	                  size="sm"
+	                  onClick={() => toast.info("Atribuição de responsáveis na tarefa será conectada ao banco em uma próxima etapa.")}
+	                >
+	                  <UserPlus className="mr-1 size-4" />
+	                  Alterar responsável
+	                </Button>
+	              </div>
 
               <p className="text-sm font-medium">Prioridade</p>
               <div className="flex flex-wrap gap-2">
